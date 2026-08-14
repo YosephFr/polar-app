@@ -53,10 +53,10 @@ export function Field({
   );
 }
 
-const controlClass = "min-h-14 min-w-0 w-full rounded-[1.125rem] border-[1.5px] border-border-strong bg-panel px-4 text-base font-bold text-ink shadow-field placeholder:font-semibold placeholder:text-ink-faint transition-[border-color,box-shadow,background-color] duration-200 hover:border-polar/45 focus:border-polar focus:outline-none focus:shadow-[0_0_0_4px_rgb(8_139_142_/_0.12)] disabled:bg-surface disabled:text-ink-faint aria-[invalid=true]:border-danger aria-[invalid=true]:shadow-[0_0_0_4px_rgb(200_73_77_/_0.1)]";
+const controlClass = "min-w-0 rounded-[1.125rem] border-[1.5px] border-border-strong bg-panel px-4 text-base font-bold text-ink shadow-field placeholder:font-semibold placeholder:text-ink-faint transition-[border-color,box-shadow,background-color] duration-200 hover:border-polar/45 focus:border-polar focus:outline-none focus:shadow-[0_0_0_4px_rgb(8_139_142_/_0.12)] disabled:bg-surface disabled:text-ink-faint aria-[invalid=true]:border-danger aria-[invalid=true]:shadow-[0_0_0_4px_rgb(200_73_77_/_0.1)]";
 
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={`${controlClass} ${className}`} {...props} />;
+  return <input className={`${controlClass} min-h-14 w-full ${className}`} {...props} />;
 }
 
 type SelectOption = {
@@ -75,6 +75,9 @@ type SelectProps = {
   className?: string;
   children: ReactNode;
   leading?: ReactNode;
+  compact?: boolean;
+  fitContent?: boolean;
+  showIndicator?: boolean;
   "aria-label"?: string;
   "aria-invalid"?: boolean;
   "aria-describedby"?: string;
@@ -103,6 +106,9 @@ export function Select({
   className = "",
   children,
   leading,
+  compact = false,
+  fitContent = false,
+  showIndicator = true,
   onValueChange,
   "aria-label": ariaLabel,
   "aria-invalid": ariaInvalid,
@@ -187,7 +193,7 @@ export function Select({
   }
 
   return (
-    <div ref={wrapperRef} className="relative min-w-0">
+    <div ref={wrapperRef} className={`relative min-w-0 ${fitContent ? "inline-flex max-w-full" : "w-full"}`}>
       {name ? <input type="hidden" name={name} value={selectedValue} /> : null}
       <button
         id={id}
@@ -207,15 +213,17 @@ export function Select({
           setOpen((current) => !current);
         }}
         onKeyDown={keyDown}
-        className={`${controlClass} flex items-center gap-3 pr-12 text-left ${leading ? "pl-4" : ""} ${className}`}
+        className={`${controlClass} ${compact ? "min-h-11" : "min-h-14"} ${fitContent ? "w-auto max-w-full" : "w-full"} flex items-center gap-3 text-left ${showIndicator ? "pr-12" : "pr-4"} ${leading ? "pl-4" : ""} ${className}`}
       >
         {leading ? <span className="flex shrink-0 items-center text-polar">{leading}</span> : null}
-        <span className="min-w-0 flex-1 truncate">{selected?.label || "Seleccione una opción"}</span>
-        <CaretDownIcon
-          size={20}
-          weight="bold"
-          className={`pointer-events-none absolute right-4 text-ink-soft transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
+        <span className={`min-w-0 truncate ${fitContent ? "shrink" : "flex-1"}`}>{selected?.label || "Seleccione una opción"}</span>
+        {showIndicator ? (
+          <CaretDownIcon
+            size={20}
+            weight="bold"
+            className={`pointer-events-none absolute right-4 text-ink-soft transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        ) : null}
       </button>
       {open ? (
         <div
@@ -250,5 +258,5 @@ export function Select({
 }
 
 export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={`${controlClass} min-h-28 resize-y py-3.5 ${className}`} {...props} />;
+  return <textarea className={`${controlClass} min-h-28 w-full resize-y py-3.5 ${className}`} {...props} />;
 }

@@ -97,7 +97,7 @@ export function NotificationBell() {
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((value) => !value)}
-        className={`relative flex size-12 items-center justify-center rounded-[1rem] border transition-[transform,background-color,border-color] duration-200 active:scale-95 ${urgentTimer ? "border-danger/25 bg-danger-soft text-danger" : "border-polar/15 bg-polar-soft text-polar"}`}
+        className={`relative flex size-11 items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-200 active:scale-95 ${urgentTimer ? "border-danger/25 bg-danger-soft text-danger" : "border-polar/15 bg-polar-soft text-polar"}`}
       >
         {urgentTimer ? <BellRingingIcon size={24} weight="fill" /> : <BellIcon size={24} weight="bold" />}
         {unreadCount > 0 ? (
@@ -111,7 +111,7 @@ export function NotificationBell() {
         <section
           role="dialog"
           aria-label="Centro de notificaciones"
-          className="page-enter fixed inset-x-3 top-[calc(5.65rem+env(safe-area-inset-top))] z-[80] mx-auto flex max-h-[min(72dvh,42rem)] max-w-[28rem] flex-col overflow-hidden rounded-[1.5rem] border border-border bg-panel shadow-overlay min-[700px]:absolute min-[700px]:inset-x-auto min-[700px]:right-0 min-[700px]:top-[calc(100%+0.65rem)] min-[700px]:w-[26rem]"
+          className="page-enter fixed inset-x-3 top-[calc(5rem+env(safe-area-inset-top))] z-[80] mx-auto flex max-h-[min(72dvh,42rem)] max-w-[28rem] flex-col overflow-hidden rounded-[1.5rem] border border-border bg-panel shadow-overlay min-[700px]:absolute min-[700px]:inset-x-auto min-[700px]:right-0 min-[700px]:top-[calc(100%+0.65rem)] min-[700px]:w-[26rem]"
         >
           <header className="flex min-h-16 items-center gap-3 border-b border-border px-4">
             <div className="min-w-0 flex-1">
