@@ -20,12 +20,12 @@ export function PolarMark({ size = 44, className = "", priority = false }: Polar
   );
 }
 
-export function PolarLogo({ compact = false }: { compact?: boolean }) {
+export function PolarLogo({ compact = false, responsive = false }: { compact?: boolean; responsive?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2.5 text-polar" aria-label="Polar">
       <PolarMark size={44} priority />
       {compact ? null : (
-        <span className="text-[1.85rem] font-black leading-none tracking-[-0.045em]">Polar</span>
+        <span className={`text-[1.85rem] font-black leading-none tracking-[-0.045em] ${responsive ? "hidden min-[360px]:inline" : ""}`}>Polar</span>
       )}
     </span>
   );
