@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,7 +14,9 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Toast } from "@/components/ui/feedback";
 import { PageHeader } from "@/components/ui/page-header";
+import { clearFieldError, focusFirstError, validateForm, type ApiProblem, type FieldErrors } from "@/lib/client/form-validation";
 import type { PatientCarePlan, PatientSummary } from "@/lib/db/data";
 import { usePolar } from "@/components/app/app-context";
 
@@ -38,28 +40,56 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
   const { user } = usePolar();
   const router = useRouter();
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
-  const [message, setMessage] = useState("");
+  const [refreshing, startTransition] = useTransition();
+  const [feedback, setFeedback] = useState<{ text: string; tone: "success" | "error" } | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  function clearError(name: string) {
+    setFeedback(null);
+    setFieldErrors((current) => clearFieldError(current, name));
+  }
+
+  function inputFeedback(name: string, id: string) {
+    return {
+      onChange: () => clearError(name),
+      "aria-invalid": Boolean(fieldErrors[name]),
+      "aria-describedby": fieldErrors[name] ? `${id}-error` : undefined,
+    };
+  }
 
   async function share(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const validation = validateForm(formElement);
+    if (Object.keys(validation).length > 0) {
+      setFieldErrors(validation);
+      setFeedback({ text: "Revise los campos indicados", tone: "error" });
+      focusFirstError(formElement, validation);
+      return;
+    }
+    const form = new FormData(formElement);
     setBusyAction("share");
-    setMessage("");
+    setFeedback(null);
     try {
       const response = await fetch(`/api/patients/${activePatient.id}/share`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier: String(form.get("identifier")), role: String(form.get("role")) }),
       });
-      const body = (await response.json()) as { error?: string };
-      if (!response.ok) setMessage(body.error || "No se pudo compartir el perfil");
-      else {
-        event.currentTarget.reset();
-        setMessage("Acceso compartido");
-        router.refresh();
+      const body = (await response.json()) as ApiProblem;
+      if (!response.ok) {
+        const nextErrors = body.fieldErrors || {};
+        setFieldErrors(nextErrors);
+        setFeedback({ text: body.error || "No se pudo compartir el perfil", tone: "error" });
+        focusFirstError(formElement, nextErrors);
+      } else {
+        formElement.reset();
+        setFieldErrors({});
+        setFeedback({ text: "Acceso compartido", tone: "success" });
+        startTransition(() => router.refresh());
       }
     } catch {
-      setMessage("Revise la conexión e inténtelo de nuevo");
+      setFeedback({ text: "Revise la conexión e inténtelo de nuevo", tone: "error" });
     } finally {
       setBusyAction(null);
     }
@@ -67,9 +97,17 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
 
   async function updatePlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const validation = validateForm(formElement);
+    if (Object.keys(validation).length > 0) {
+      setFieldErrors(validation);
+      setFeedback({ text: "Revise los campos indicados", tone: "error" });
+      focusFirstError(formElement, validation);
+      return;
+    }
+    const form = new FormData(formElement);
     setBusyAction("plan");
-    setMessage("");
+    setFeedback(null);
     try {
       const response = await fetch(`/api/patients/${activePatient.id}/care-plan`, {
         method: "POST",
@@ -97,14 +135,19 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
           hypoTreatmentNote: String(form.get("hypoTreatmentNote") || "") || null,
         }),
       });
-      const body = (await response.json()) as { error?: string; version?: number };
-      if (!response.ok) setMessage(body.error || "No se pudo actualizar el plan");
-      else {
-        setMessage(`Plan actualizado a la versión ${body.version}`);
-        router.refresh();
+      const body = (await response.json()) as ApiProblem & { version?: number };
+      if (!response.ok) {
+        const nextErrors = body.fieldErrors || {};
+        setFieldErrors(nextErrors);
+        setFeedback({ text: body.error || "No se pudo actualizar el plan", tone: "error" });
+        focusFirstError(formElement, nextErrors);
+      } else {
+        setFieldErrors({});
+        setFeedback({ text: `Plan actualizado a la versión ${body.version}`, tone: "success" });
+        startTransition(() => router.refresh());
       }
     } catch {
-      setMessage("Revise la conexión e inténtelo de nuevo");
+      setFeedback({ text: "Revise la conexión e inténtelo de nuevo", tone: "error" });
     } finally {
       setBusyAction(null);
     }
@@ -112,9 +155,19 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
 
   async function logout() {
     setBusyAction("logout");
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/entrar");
-    router.refresh();
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        setFeedback({ text: "No se pudo cerrar la sesión", tone: "error" });
+        return;
+      }
+      router.push("/entrar");
+      router.refresh();
+    } catch {
+      setFeedback({ text: "Revise la conexión e inténtelo de nuevo", tone: "error" });
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   return (
@@ -153,9 +206,9 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
           <h2 className="text-lg font-black text-polar-dark">Compartir perfil</h2>
         </div>
         <p className="mt-2 text-sm font-semibold leading-5 text-ink-soft">Busque una cuenta existente por su usuario o correo electrónico.</p>
-        <form onSubmit={share} className="mt-5 grid min-w-0 grid-cols-1 gap-4 min-[520px]:grid-cols-[minmax(0,1fr)_12rem]">
-          <Field label="Usuario o correo electrónico" htmlFor="share-identifier">
-            <Input id="share-identifier" name="identifier" required autoCapitalize="none" />
+        <form onSubmit={share} noValidate className="mt-5 grid min-w-0 grid-cols-1 gap-4 min-[520px]:grid-cols-[minmax(0,1fr)_12rem]">
+          <Field label="Usuario o correo electrónico" htmlFor="share-identifier" error={fieldErrors.identifier}>
+            <Input id="share-identifier" name="identifier" minLength={2} maxLength={190} required autoCapitalize="none" {...inputFeedback("identifier", "share-identifier")} />
           </Field>
           <Field label="Rol" htmlFor="share-role">
             <Select id="share-role" name="role" defaultValue="caregiver">
@@ -164,7 +217,7 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
               <option value="clinician">Profesional</option>
             </Select>
           </Field>
-          <Button type="submit" loading={busyAction === "share"} icon={<ShareNetworkIcon size={20} weight="bold" />} className="col-span-full min-h-14">Compartir acceso</Button>
+          <Button type="submit" loading={busyAction === "share" || refreshing} icon={<ShareNetworkIcon size={20} weight="bold" />} className="col-span-full min-h-14">Compartir acceso</Button>
         </form>
         <div className="mt-5 divide-y divide-border">
           {members.map((member) => (
@@ -193,39 +246,39 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
           <span className="font-semibold text-ink-soft">Umbral bajo</span><strong className="text-right font-black">{carePlan.lowThreshold} mg/dL</strong>
         </div>
 
-        <form onSubmit={updatePlan} className="mt-6 flex min-w-0 flex-col gap-4">
-          <Field label="Nombre" htmlFor="edit-name"><Input id="edit-name" name="name" defaultValue={activePatient.name} required /></Field>
+        <form onSubmit={updatePlan} noValidate className="mt-6 flex min-w-0 flex-col gap-4">
+          <Field label="Nombre" htmlFor="edit-name" error={fieldErrors.name}><Input id="edit-name" name="name" minLength={2} maxLength={80} defaultValue={activePatient.name} required {...inputFeedback("name", "edit-name")} /></Field>
           <div className="grid min-w-0 grid-cols-1 gap-4 min-[460px]:grid-cols-2">
-            <Field label="Nacimiento" htmlFor="edit-birth"><Input id="edit-birth" name="birthDate" type="date" defaultValue={activePatient.birthDate || ""} /></Field>
+            <Field label="Nacimiento" htmlFor="edit-birth" error={fieldErrors.birthDate}><Input id="edit-birth" name="birthDate" type="date" defaultValue={activePatient.birthDate || ""} {...inputFeedback("birthDate", "edit-birth")} /></Field>
             <Field label="Género" htmlFor="edit-sex"><Select id="edit-sex" name="sex" defaultValue={activePatient.sex || ""}><option value="">Sin indicar</option><option value="female">Femenino</option><option value="male">Masculino</option><option value="other">Otro</option></Select></Field>
           </div>
           <div className="grid min-w-0 grid-cols-1 gap-4 min-[460px]:grid-cols-2">
-            <Field label="Insulina basal" htmlFor="edit-basal"><Input id="edit-basal" name="basalInsulinName" defaultValue={carePlan.basalInsulinName || ""} /></Field>
-            <Field label="Dosis basal" htmlFor="edit-basal-dose"><Input id="edit-basal-dose" name="basalDose" type="number" step="0.5" min="0" defaultValue={carePlan.basalDose ?? ""} /></Field>
+            <Field label="Insulina basal" htmlFor="edit-basal" error={fieldErrors.basalInsulinName}><Input id="edit-basal" name="basalInsulinName" maxLength={100} defaultValue={carePlan.basalInsulinName || ""} {...inputFeedback("basalInsulinName", "edit-basal")} /></Field>
+            <Field label="Dosis basal" htmlFor="edit-basal-dose" error={fieldErrors.basalDose}><Input id="edit-basal-dose" name="basalDose" type="number" step="0.5" min="0" defaultValue={carePlan.basalDose ?? ""} {...inputFeedback("basalDose", "edit-basal-dose")} /></Field>
           </div>
-          <Field label="Insulina rápida" htmlFor="edit-rapid"><Input id="edit-rapid" name="rapidInsulinName" defaultValue={carePlan.rapidInsulinName || ""} /></Field>
+          <Field label="Insulina rápida" htmlFor="edit-rapid" error={fieldErrors.rapidInsulinName}><Input id="edit-rapid" name="rapidInsulinName" maxLength={100} defaultValue={carePlan.rapidInsulinName || ""} {...inputFeedback("rapidInsulinName", "edit-rapid")} /></Field>
           <div className="grid min-w-0 grid-cols-1 gap-4 min-[460px]:grid-cols-2">
-            <Field label="Factor de corrección" htmlFor="edit-factor"><Input id="edit-factor" name="correctionFactor" type="number" step="0.1" min="1" defaultValue={carePlan.correctionFactor} required /></Field>
-            <Field label="Umbral bajo" htmlFor="edit-low"><Input id="edit-low" name="lowThreshold" type="number" min="40" max="100" defaultValue={carePlan.lowThreshold} required /></Field>
-            <Field label="Objetivo precomida" htmlFor="edit-premeal"><Input id="edit-premeal" name="premealTarget" type="number" min="50" max="300" defaultValue={carePlan.premealTarget} required /></Field>
-            <Field label="Objetivo de corrección" htmlFor="edit-correction"><Input id="edit-correction" name="correctionTarget" type="number" min="50" max="300" defaultValue={carePlan.correctionTarget} required /></Field>
+            <Field label="Factor de corrección" htmlFor="edit-factor" error={fieldErrors.correctionFactor}><Input id="edit-factor" name="correctionFactor" type="number" step="0.1" min="1" max="1000" defaultValue={carePlan.correctionFactor} required {...inputFeedback("correctionFactor", "edit-factor")} /></Field>
+            <Field label="Umbral bajo" htmlFor="edit-low" error={fieldErrors.lowThreshold}><Input id="edit-low" name="lowThreshold" type="number" min="40" max="100" defaultValue={carePlan.lowThreshold} required {...inputFeedback("lowThreshold", "edit-low")} /></Field>
+            <Field label="Objetivo precomida" htmlFor="edit-premeal" error={fieldErrors.premealTarget}><Input id="edit-premeal" name="premealTarget" type="number" min="50" max="300" defaultValue={carePlan.premealTarget} required {...inputFeedback("premealTarget", "edit-premeal")} /></Field>
+            <Field label="Objetivo de corrección" htmlFor="edit-correction" error={fieldErrors.correctionTarget}><Input id="edit-correction" name="correctionTarget" type="number" min="50" max="300" defaultValue={carePlan.correctionTarget} required {...inputFeedback("correctionTarget", "edit-correction")} /></Field>
             <Field label="Redondeo" htmlFor="edit-round"><Select id="edit-round" name="roundingIncrement" defaultValue={String(carePlan.roundingIncrement)}><option value="1">1 unidad</option><option value="0.5">0,5 unidades</option></Select></Field>
-            <Field label="Máximo opcional" htmlFor="edit-max"><Input id="edit-max" name="maxBolus" type="number" min="0.5" step="0.5" defaultValue={carePlan.maxBolus ?? ""} /></Field>
+            <Field label="Máximo opcional" htmlFor="edit-max" error={fieldErrors.maxBolus}><Input id="edit-max" name="maxBolus" type="number" min="0.5" max="200" step="0.5" defaultValue={carePlan.maxBolus ?? ""} {...inputFeedback("maxBolus", "edit-max")} /></Field>
           </div>
           <h3 className="mt-2 text-lg font-black text-ink">Ratios por comida</h3>
           <div className="grid min-w-0 grid-cols-1 gap-4 min-[460px]:grid-cols-2">
-            <Field label="Desayuno" htmlFor="edit-r-breakfast"><Input id="edit-r-breakfast" name="ratioBreakfast" type="number" min="0" step="0.1" defaultValue={carePlan.ratios.breakfast} required /></Field>
-            <Field label="Colación" htmlFor="edit-r-snack"><Input id="edit-r-snack" name="ratioMorningSnack" type="number" min="0" step="0.1" defaultValue={carePlan.ratios.morning_snack} required /></Field>
-            <Field label="Almuerzo" htmlFor="edit-r-lunch"><Input id="edit-r-lunch" name="ratioLunch" type="number" min="0" step="0.1" defaultValue={carePlan.ratios.lunch} required /></Field>
-            <Field label="Merienda" htmlFor="edit-r-afternoon"><Input id="edit-r-afternoon" name="ratioAfternoonSnack" type="number" min="0" step="0.1" defaultValue={carePlan.ratios.afternoon_snack} required /></Field>
-            <Field label="Cena" htmlFor="edit-r-dinner" className="min-[460px]:col-span-2"><Input id="edit-r-dinner" name="ratioDinner" type="number" min="0" step="0.1" defaultValue={carePlan.ratios.dinner} required /></Field>
+            <Field label="Desayuno" htmlFor="edit-r-breakfast" error={fieldErrors.ratioBreakfast}><Input id="edit-r-breakfast" name="ratioBreakfast" type="number" min="0" max="200" step="0.1" defaultValue={carePlan.ratios.breakfast} required {...inputFeedback("ratioBreakfast", "edit-r-breakfast")} /></Field>
+            <Field label="Colación" htmlFor="edit-r-snack" error={fieldErrors.ratioMorningSnack}><Input id="edit-r-snack" name="ratioMorningSnack" type="number" min="0" max="200" step="0.1" defaultValue={carePlan.ratios.morning_snack} required {...inputFeedback("ratioMorningSnack", "edit-r-snack")} /></Field>
+            <Field label="Almuerzo" htmlFor="edit-r-lunch" error={fieldErrors.ratioLunch}><Input id="edit-r-lunch" name="ratioLunch" type="number" min="0" max="200" step="0.1" defaultValue={carePlan.ratios.lunch} required {...inputFeedback("ratioLunch", "edit-r-lunch")} /></Field>
+            <Field label="Merienda" htmlFor="edit-r-afternoon" error={fieldErrors.ratioAfternoonSnack}><Input id="edit-r-afternoon" name="ratioAfternoonSnack" type="number" min="0" max="200" step="0.1" defaultValue={carePlan.ratios.afternoon_snack} required {...inputFeedback("ratioAfternoonSnack", "edit-r-afternoon")} /></Field>
+            <Field label="Cena" htmlFor="edit-r-dinner" className="min-[460px]:col-span-2" error={fieldErrors.ratioDinner}><Input id="edit-r-dinner" name="ratioDinner" type="number" min="0" max="200" step="0.1" defaultValue={carePlan.ratios.dinner} required {...inputFeedback("ratioDinner", "edit-r-dinner")} /></Field>
           </div>
-          <Field label="Plan para una baja" htmlFor="edit-hypo"><Textarea id="edit-hypo" name="hypoTreatmentNote" defaultValue={carePlan.hypoTreatmentNote || ""} /></Field>
-          <Button type="submit" loading={busyAction === "plan"} icon={<FloppyDiskIcon size={20} weight="bold" />} className="min-h-14">Guardar nueva versión</Button>
+          <Field label="Plan para una baja" htmlFor="edit-hypo" error={fieldErrors.hypoTreatmentNote}><Textarea id="edit-hypo" name="hypoTreatmentNote" maxLength={500} defaultValue={carePlan.hypoTreatmentNote || ""} {...inputFeedback("hypoTreatmentNote", "edit-hypo")} /></Field>
+          <Button type="submit" loading={busyAction === "plan" || refreshing} icon={<FloppyDiskIcon size={20} weight="bold" />} className="min-h-14">Guardar nueva versión</Button>
         </form>
       </details>
 
-      {message ? <p className="page-enter mt-5 rounded-[1.15rem] bg-surface px-4 py-3 text-sm font-extrabold" role="status">{message}</p> : null}
+      {feedback ? <Toast message={feedback.text} tone={feedback.tone} onDismiss={() => setFeedback(null)} /> : null}
       <Button type="button" variant="ghost" onClick={logout} loading={busyAction === "logout"} icon={<SignOutIcon size={20} weight="bold" />} className="mt-7 w-full">Cerrar sesión</Button>
     </div>
   );
