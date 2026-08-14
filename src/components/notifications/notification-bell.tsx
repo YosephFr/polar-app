@@ -11,11 +11,13 @@ import {
   CloudSlashIcon,
   GearSixIcon,
   PulseIcon,
+  PhoneCallIcon,
   TimerIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { formatPolarDateTime } from "@/lib/date-time";
 import { useNotificationCenter } from "./notification-center-provider";
+import { usePolar } from "@/components/app/app-context";
 
 function timerLabel(dueAt: string, status: string, remainingSeconds: number | null, now: number) {
   if (status === "paused") {
@@ -39,6 +41,7 @@ const pushLabels = {
 };
 
 export function NotificationBell() {
+  const { patient } = usePolar();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const {
@@ -78,7 +81,7 @@ export function NotificationBell() {
   const notifications = snapshot.notifications.filter(
     (item) => !(item.sourceType === "timer" && activeSources.has(`timer:${item.sourceId}`)),
   );
-  const urgentTimer = snapshot.timers.some((timer) => timer.status === "due");
+  const urgentTimer = snapshot.timers.some((timer) => timer.status === "due" || (timer.status === "active" && new Date(timer.dueAt).getTime() <= now));
 
   function changePreference(name: keyof typeof snapshot.preferences, checked: boolean) {
     void savePreferences({ ...snapshot.preferences, [name]: checked });
@@ -150,13 +153,13 @@ export function NotificationBell() {
               <div className="border-b border-border">
                 <p className="px-4 pb-1 pt-4 text-xs font-black uppercase tracking-[0.08em] text-ink-faint">Temporizadores</p>
                 {snapshot.timers.map((timer) => (
-                  <Link key={timer.id} href="/agenda" onClick={() => setOpen(false)} className={`flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface ${timer.status === "due" ? "text-danger" : "text-ink"}`}>
-                    <span className={`flex size-10 shrink-0 items-center justify-center rounded-[0.85rem] ${timer.status === "due" ? "bg-danger-soft" : "bg-polar-soft text-polar"}`}>
+                  <Link key={timer.id} href="/agenda" onClick={() => setOpen(false)} className={`flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface ${timer.status === "due" || (timer.status === "active" && new Date(timer.dueAt).getTime() <= now) ? "text-danger" : "text-ink"}`}>
+                    <span className={`flex size-10 shrink-0 items-center justify-center rounded-[0.85rem] ${timer.status === "due" || (timer.status === "active" && new Date(timer.dueAt).getTime() <= now) ? "bg-danger-soft" : "bg-polar-soft text-polar"}`}>
                       <TimerIcon size={20} weight="fill" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-black">{timer.label}</span>
-                      <span className="tnum mt-0.5 block text-xs font-extrabold">{timerLabel(timer.dueAt, timer.status, timer.remainingSeconds, now)}</span>
+                      <span className="tnum mt-0.5 block text-xs font-extrabold">{timerLabel(timer.dueAt, timer.status === "active" && new Date(timer.dueAt).getTime() <= now ? "due" : timer.status, timer.remainingSeconds, now)}</span>
                     </span>
                   </Link>
                 ))}
@@ -198,6 +201,14 @@ export function NotificationBell() {
                     {!item.readAt ? <CheckIcon size={16} weight="bold" className="mt-1 shrink-0 text-polar" /> : null}
                   </Link>
                 ))}
+              </div>
+            ) : null}
+
+            {(patient.emergencyContactPhone || patient.emergencyServicePhone) ? (
+              <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3.5">
+                <span className="flex w-full items-center gap-2 text-xs font-black text-ink-soft"><PhoneCallIcon size={18} weight="duotone" className="text-polar" />Contactos rápidos</span>
+                {patient.emergencyContactPhone ? <a href={`tel:${patient.emergencyContactPhone.replace(/[^+\d]/g, "")}`} className="inline-flex min-h-10 items-center rounded-[0.8rem] bg-polar px-3 text-xs font-black text-white">{patient.emergencyContactName || "Contacto"}</a> : null}
+                {patient.emergencyServicePhone ? <a href={`tel:${patient.emergencyServicePhone.replace(/[^+\d]/g, "")}`} className="inline-flex min-h-10 items-center rounded-[0.8rem] bg-danger px-3 text-xs font-black text-white">Emergencias</a> : null}
               </div>
             ) : null}
 

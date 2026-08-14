@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserCircleIcon } from "@phosphor-icons/react";
-import { PolarLogo, PolarMark } from "@/components/brand/polar-logo";
+import { PolarLogo } from "@/components/brand/polar-logo";
 import { Select } from "@/components/ui/field";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { usePolar } from "./app-context";
+import { mascotById } from "@/lib/domain/mascots";
 
 export function AppHeader() {
   const { patients, patient } = usePolar();
+  const mascot = mascotById(patient.activeMascot);
   const router = useRouter();
   const [sending, setSending] = useState(false);
   const [refreshing, startRefresh] = useTransition();
@@ -55,7 +58,7 @@ export function AppHeader() {
               value={patient.id}
               disabled={switching}
               onValueChange={switchPatient}
-              leading={<PolarMark size={29} />}
+              leading={<Image src={mascot.src} alt="" width={29} height={29} className="size-7 object-contain" />}
               className="min-h-12 border-polar/20 bg-canvas px-3 text-base font-black shadow-none sm:px-4"
             >
               {patients.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}

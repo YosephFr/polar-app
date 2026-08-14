@@ -489,12 +489,8 @@ export async function updatePatientCarePlan(userId: string, patientId: string, i
     );
     const nextVersion = Number(versionRows[0]?.version || 0) + 1;
     await connection.execute(
-      `UPDATE patients SET name = ?, birth_date = ?, sex = ?, emergency_contact_name = ?,
-       emergency_contact_phone = ?, emergency_service_phone = ? WHERE id = ?`,
-      [
-        input.name, input.birthDate, input.sex, input.emergencyContactName,
-        input.emergencyContactPhone, input.emergencyServicePhone, patientId,
-      ],
+      "UPDATE patients SET name = ?, birth_date = ?, sex = ? WHERE id = ?",
+      [input.name, input.birthDate, input.sex, patientId],
     );
     await insertCarePlan(connection, userId, patientId, nextVersion, input);
     await connection.execute(

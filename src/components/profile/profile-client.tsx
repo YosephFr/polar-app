@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   FloppyDiskIcon,
+  PaletteIcon,
+  PhoneCallIcon,
   PlusIcon,
   ShareNetworkIcon,
   ShieldCheckIcon,
@@ -21,7 +23,7 @@ import type { PatientCarePlan, PatientSummary } from "@/lib/db/data";
 import { usePolar } from "@/components/app/app-context";
 
 type Member = { id: string; username: string; displayName: string; role: string };
-type BusyAction = "share" | "plan" | "logout" | null;
+type BusyAction = "share" | "plan" | "contacts" | "theme" | "logout" | null;
 
 const roleLabels: Record<string, string> = {
   owner: "Responsable",
@@ -37,12 +39,13 @@ function formNumber(form: FormData, name: string, nullable = false) {
 }
 
 export function ProfileClient({ activePatient, carePlan, members }: { activePatient: PatientSummary; carePlan: PatientCarePlan; members: Member[] }) {
-  const { user } = usePolar();
+  const { user, preferences } = usePolar();
   const router = useRouter();
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [refreshing, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ text: string; tone: "success" | "error" } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [theme, setTheme] = useState(preferences.theme);
 
   function clearError(name: string) {
     setFeedback(null);
@@ -123,6 +126,11 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
           premealTarget: formNumber(form, "premealTarget"),
           correctionTarget: formNumber(form, "correctionTarget"),
           lowThreshold: formNumber(form, "lowThreshold"),
+          highThreshold: formNumber(form, "highThreshold"),
+          autoFollowUpEnabled: Boolean(form.get("autoFollowUpEnabled")),
+          standardFollowUpMinutes: formNumber(form, "standardFollowUpMinutes"),
+          lowFollowUpMinutes: formNumber(form, "lowFollowUpMinutes"),
+          highFollowUpMinutes: formNumber(form, "highFollowUpMinutes"),
           roundingIncrement: formNumber(form, "roundingIncrement"),
           maxBolus: formNumber(form, "maxBolus", true),
           ratios: {
@@ -148,6 +156,55 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
       }
     } catch {
       setFeedback({ text: "Revise la conexión e inténtelo de nuevo", tone: "error" });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function updateContacts(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setBusyAction("contacts");
+    setFeedback(null);
+    try {
+      const response = await fetch(`/api/patients/${activePatient.id}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emergencyContactName: String(form.get("emergencyContactName") || "").trim() || null,
+          emergencyContactPhone: String(form.get("emergencyContactPhone") || "").trim() || null,
+          emergencyServicePhone: String(form.get("emergencyServicePhone") || "").trim() || null,
+        }),
+      });
+      const body = await response.json() as ApiProblem;
+      if (!response.ok) {
+        setFeedback({ text: body.error || "No se pudieron guardar los contactos", tone: "error" });
+        return;
+      }
+      setFeedback({ text: "Contactos guardados", tone: "success" });
+      startTransition(() => router.refresh());
+    } catch {
+      setFeedback({ text: "Revise la conexión e inténtelo de nuevo", tone: "error" });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function updateTheme() {
+    setBusyAction("theme");
+    setFeedback(null);
+    try {
+      const response = await fetch("/api/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme }),
+      });
+      if (!response.ok) {
+        setFeedback({ text: "No se pudo cambiar la apariencia", tone: "error" });
+        return;
+      }
+      setFeedback({ text: "Apariencia actualizada", tone: "success" });
+      startTransition(() => router.refresh());
     } finally {
       setBusyAction(null);
     }
@@ -197,6 +254,40 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
         <div className="mt-4 rounded-[1.15rem] bg-surface px-4 py-4">
           <p className="font-black">{activePatient.name}</p>
           <p className="mt-1 text-sm font-bold text-ink-soft">Diabetes tipo 1 · {roleLabels[activePatient.role] || activePatient.role}</p>
+        </div>
+      </section>
+
+      <section className="mt-7 rounded-[1.5rem] border border-polar/10 bg-panel p-4 shadow-card sm:p-6">
+        <div className="flex items-center gap-3">
+          <PhoneCallIcon size={24} weight="duotone" className="text-polar" />
+          <h2 className="text-lg font-black text-polar-dark">Contactos de emergencia</h2>
+        </div>
+        {(activePatient.emergencyContactPhone || activePatient.emergencyServicePhone) ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {activePatient.emergencyContactPhone ? <a href={`tel:${activePatient.emergencyContactPhone.replace(/[^+\d]/g, "")}`} className="inline-flex min-h-11 items-center gap-2 rounded-[0.9rem] bg-polar px-3.5 text-sm font-black text-white"><PhoneCallIcon size={18} weight="fill" />{activePatient.emergencyContactName || "Contacto"}</a> : null}
+            {activePatient.emergencyServicePhone ? <a href={`tel:${activePatient.emergencyServicePhone.replace(/[^+\d]/g, "")}`} className="inline-flex min-h-11 items-center gap-2 rounded-[0.9rem] bg-danger px-3.5 text-sm font-black text-white"><PhoneCallIcon size={18} weight="fill" />Emergencias</a> : null}
+          </div>
+        ) : null}
+        <form onSubmit={updateContacts} className="mt-5 grid min-w-0 grid-cols-1 gap-4 min-[500px]:grid-cols-2">
+          <Field label="Nombre del contacto" htmlFor="emergency-name" className="min-[500px]:col-span-2"><Input id="emergency-name" name="emergencyContactName" maxLength={100} defaultValue={activePatient.emergencyContactName || ""} /></Field>
+          <Field label="Teléfono del contacto" htmlFor="emergency-phone"><Input id="emergency-phone" name="emergencyContactPhone" type="tel" inputMode="tel" maxLength={40} defaultValue={activePatient.emergencyContactPhone || ""} /></Field>
+          <Field label="Teléfono de emergencias" htmlFor="emergency-service"><Input id="emergency-service" name="emergencyServicePhone" type="tel" inputMode="tel" maxLength={40} defaultValue={activePatient.emergencyServicePhone || ""} /></Field>
+          <Button type="submit" loading={busyAction === "contacts" || refreshing} icon={<FloppyDiskIcon size={20} weight="bold" />} className="min-[500px]:col-span-2">Guardar contactos</Button>
+        </form>
+      </section>
+
+      <section className="mt-7 rounded-[1.5rem] border border-polar/10 bg-panel p-4 shadow-card sm:p-6">
+        <div className="flex items-center gap-3">
+          <PaletteIcon size={24} weight="duotone" className="text-polar" />
+          <h2 className="text-lg font-black text-polar-dark">Apariencia</h2>
+        </div>
+        <div className="mt-4 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 max-[390px]:grid-cols-1">
+          <Select aria-label="Tema de la aplicación" value={theme} onValueChange={(value) => setTheme(value as typeof theme)}>
+            <option value="polar">Polar</option>
+            <option value="night">Noche</option>
+            <option value="contrast">Alto contraste</option>
+          </Select>
+          <Button type="button" loading={busyAction === "theme" || refreshing} onClick={updateTheme} className="px-5">Aplicar</Button>
         </div>
       </section>
 
@@ -260,10 +351,21 @@ export function ProfileClient({ activePatient, carePlan, members }: { activePati
           <div className="grid min-w-0 grid-cols-1 gap-4 min-[460px]:grid-cols-2">
             <Field label="Factor de corrección" htmlFor="edit-factor" error={fieldErrors.correctionFactor}><Input id="edit-factor" name="correctionFactor" type="number" step="0.1" min="1" max="1000" defaultValue={carePlan.correctionFactor} required {...inputFeedback("correctionFactor", "edit-factor")} /></Field>
             <Field label="Umbral bajo" htmlFor="edit-low" error={fieldErrors.lowThreshold}><Input id="edit-low" name="lowThreshold" type="number" min="40" max="100" defaultValue={carePlan.lowThreshold} required {...inputFeedback("lowThreshold", "edit-low")} /></Field>
+            <Field label="Umbral alto" htmlFor="edit-high" error={fieldErrors.highThreshold}><Input id="edit-high" name="highThreshold" type="number" min="120" max="600" defaultValue={carePlan.highThreshold} required {...inputFeedback("highThreshold", "edit-high")} /></Field>
             <Field label="Objetivo precomida" htmlFor="edit-premeal" error={fieldErrors.premealTarget}><Input id="edit-premeal" name="premealTarget" type="number" min="50" max="300" defaultValue={carePlan.premealTarget} required {...inputFeedback("premealTarget", "edit-premeal")} /></Field>
             <Field label="Objetivo de corrección" htmlFor="edit-correction" error={fieldErrors.correctionTarget}><Input id="edit-correction" name="correctionTarget" type="number" min="50" max="300" defaultValue={carePlan.correctionTarget} required {...inputFeedback("correctionTarget", "edit-correction")} /></Field>
             <Field label="Redondeo" htmlFor="edit-round"><Select id="edit-round" name="roundingIncrement" defaultValue={String(carePlan.roundingIncrement)}><option value="1">1 unidad</option><option value="0.5">0,5 unidades</option></Select></Field>
             <Field label="Máximo opcional" htmlFor="edit-max" error={fieldErrors.maxBolus}><Input id="edit-max" name="maxBolus" type="number" min="0.5" max="200" step="0.5" defaultValue={carePlan.maxBolus ?? ""} {...inputFeedback("maxBolus", "edit-max")} /></Field>
+          </div>
+          <h3 className="mt-2 text-lg font-black text-ink">Controles posteriores</h3>
+          <label className="flex min-h-12 items-center gap-3 rounded-[1rem] bg-surface px-4 text-sm font-bold text-ink">
+            <input type="checkbox" name="autoFollowUpEnabled" defaultChecked={carePlan.autoFollowUpEnabled} className="size-5 accent-polar" />
+            <span>Crear recordatorios después de cada registro</span>
+          </label>
+          <div className="grid min-w-0 grid-cols-1 gap-4 min-[460px]:grid-cols-3">
+            <Field label="Habitual" htmlFor="edit-follow-standard" error={fieldErrors.standardFollowUpMinutes}><Input id="edit-follow-standard" name="standardFollowUpMinutes" type="number" min="1" max="1440" defaultValue={carePlan.standardFollowUpMinutes} required {...inputFeedback("standardFollowUpMinutes", "edit-follow-standard")} /></Field>
+            <Field label="Glucosa baja" htmlFor="edit-follow-low" error={fieldErrors.lowFollowUpMinutes}><Input id="edit-follow-low" name="lowFollowUpMinutes" type="number" min="1" max="1440" defaultValue={carePlan.lowFollowUpMinutes} required {...inputFeedback("lowFollowUpMinutes", "edit-follow-low")} /></Field>
+            <Field label="Glucosa alta" htmlFor="edit-follow-high" error={fieldErrors.highFollowUpMinutes}><Input id="edit-follow-high" name="highFollowUpMinutes" type="number" min="1" max="1440" defaultValue={carePlan.highFollowUpMinutes} required {...inputFeedback("highFollowUpMinutes", "edit-follow-high")} /></Field>
           </div>
           <h3 className="mt-2 text-lg font-black text-ink">Ratios por comida</h3>
           <div className="grid min-w-0 grid-cols-1 gap-4 min-[460px]:grid-cols-2">

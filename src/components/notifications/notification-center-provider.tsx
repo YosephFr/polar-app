@@ -124,12 +124,13 @@ export function NotificationCenterProvider({
         .map((item) => `${item.sourceType}:${item.sourceId}`),
     );
     const dueWithoutNotification = snapshot.timers.filter(
-      (timer) => timer.status === "due" && !unreadSources.has(`timer:${timer.id}`),
+      (timer) => (timer.status === "due" || (timer.status === "active" && new Date(timer.dueAt).getTime() <= now))
+        && !unreadSources.has(`timer:${timer.id}`),
     ).length;
     return snapshot.notifications.filter((item) => !item.readAt).length
       + dueWithoutNotification
       + (updateReady && snapshot.preferences.updatesEnabled ? 1 : 0);
-  }, [snapshot, updateReady]);
+  }, [now, snapshot, updateReady]);
 
   const markRead = useCallback(async (ids?: string[]) => {
     const selected = ids ? new Set(ids) : null;
