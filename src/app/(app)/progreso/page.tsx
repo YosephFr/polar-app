@@ -9,6 +9,7 @@ import {
 import { getAppContext, listBolusRecords } from "@/lib/db/data";
 import { requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/ui/page-header";
+import { polarDateKey } from "@/lib/date-time";
 
 export const metadata = { title: "Progreso" };
 
@@ -30,7 +31,7 @@ export default async function ProgressPage() {
   const context = await getAppContext(user.id);
   if (!context) return null;
   const records = await listBolusRecords(user.id, context.patient.id, 200);
-  const days = new Set(records.map((record) => record.occurredAt.slice(0, 10))).size;
+  const days = new Set(records.map((record) => polarDateKey(record.occurredAt))).size;
   const administered = records.filter((record) => record.status === "administered").length;
   const lows = records.filter((record) => record.status === "blocked_low").length;
   const nextMascot = mascots.find((mascot) => mascot.days > days);
@@ -74,7 +75,7 @@ export default async function ProgressPage() {
             return (
               <article key={mascot.name} className={`relative min-w-0 rounded-[1.25rem] border p-2.5 text-center transition-[transform,border-color,box-shadow] ${unlocked ? "border-polar/20 bg-panel shadow-field hover:-translate-y-0.5 hover:shadow-card" : "border-border bg-surface/70"}`}>
                 <div className={`relative flex aspect-square items-center justify-center overflow-hidden rounded-[1rem] p-3 ${unlocked ? "" : "grayscale opacity-35"}`} style={{ backgroundColor: unlocked ? mascot.color : "#cfd5d5" }}>
-                  <Image src={mascot.src} alt={mascot.name} width={100} height={100} className="h-full w-full object-contain" />
+                  <Image src={mascot.src} alt={mascot.name} width={100} height={100} loading={mascot.days === 0 ? "eager" : "lazy"} fetchPriority={mascot.days === 0 ? "high" : "auto"} className="h-full w-full object-contain" />
                   {unlocked ? <CheckCircleIcon size={20} weight="fill" className="absolute right-2 top-2 text-on-accent" /> : <LockSimpleIcon size={19} weight="fill" className="absolute right-2 top-2 text-ink-soft" />}
                 </div>
                 <h3 className={`mt-2.5 text-sm font-black leading-4 ${unlocked ? "text-ink" : "text-ink-faint"}`}>{mascot.name}</h3>

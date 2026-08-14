@@ -2,6 +2,7 @@ import { BowlFoodIcon, ClockCounterClockwiseIcon } from "@phosphor-icons/react/s
 import { getAppContext, listBolusRecords } from "@/lib/db/data";
 import { requireUser } from "@/lib/auth/session";
 import { mealLabels } from "@/lib/domain/calculator";
+import { formatPolarDateTime } from "@/lib/date-time";
 import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Historial" };
@@ -31,7 +32,7 @@ export default async function HistoryPage() {
             </span>
             <div className="min-w-0">
               <h2 className="truncate font-black">{mealLabels[record.mealType]}</h2>
-              <p className="mt-0.5 truncate text-xs font-bold text-ink-soft">{record.actorName} · {new Date(record.occurredAt).toLocaleString("es-419", { dateStyle: "medium", timeStyle: "short" })}</p>
+              <p className="mt-0.5 truncate text-xs font-bold text-ink-soft">{record.actorName} · {formatPolarDateTime(record.occurredAt, { dateStyle: "medium", timeStyle: "short" })}</p>
               <p className="mt-1 text-sm font-extrabold text-ink">{record.glucose} mg/dL · {record.carbs} g CHO</p>
             </div>
             <div className="col-start-2 text-left min-[470px]:col-start-auto min-[470px]:text-right">

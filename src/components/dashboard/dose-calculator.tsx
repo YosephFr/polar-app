@@ -15,6 +15,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Notice } from "@/components/ui/feedback";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { clearFieldError, focusFirstError, validateForm, type ApiProblem, type FieldErrors } from "@/lib/client/form-validation";
+import { formatPolarDateTime } from "@/lib/date-time";
 import { calculateDose, mealLabels, mealTypes, type DoseResult } from "@/lib/domain/calculator";
 import type { BolusRecord, PatientCarePlan } from "@/lib/db/data";
 import { usePolar } from "@/components/app/app-context";
@@ -33,7 +34,7 @@ function RecentRecord({ record }: { record: BolusRecord | null }) {
       <span className="flex size-12 items-center justify-center rounded-[1rem] bg-polar text-on-accent"><BowlFoodIcon size={23} weight="fill" /></span>
       <div className="min-w-0">
         <p className="truncate font-extrabold text-ink">{mealLabels[record.mealType]}</p>
-        <p className="mt-0.5 truncate text-xs font-semibold text-ink-soft">{record.actorName} · {new Date(record.occurredAt).toLocaleString("es-419", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+        <p className="mt-0.5 truncate text-xs font-semibold text-ink-soft">{record.actorName} · {formatPolarDateTime(record.occurredAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
       </div>
       <div className="text-right">
         <p className="tnum text-sm font-extrabold">{record.glucose} <span className="font-semibold text-ink-soft">mg/dL</span></p>

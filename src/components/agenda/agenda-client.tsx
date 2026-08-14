@@ -8,6 +8,7 @@ import { Field, Input, Textarea } from "@/components/ui/field";
 import { Toast } from "@/components/ui/feedback";
 import { PageHeader } from "@/components/ui/page-header";
 import { clearFieldError, focusFirstError, validateForm, type ApiProblem, type FieldErrors } from "@/lib/client/form-validation";
+import { formatPolarDateTime } from "@/lib/date-time";
 import type { Appointment, PatientTimer } from "@/lib/db/data";
 import { usePolar } from "@/components/app/app-context";
 
@@ -235,7 +236,7 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
             {sortedAppointments.map((item) => (
               <article key={item.id} className="min-w-0 py-4">
                 <p className="truncate font-black">{item.title}</p>
-                <p className="mt-1 text-sm font-extrabold text-polar">{new Date(item.scheduledAt).toLocaleString("es-419", { dateStyle: "long", timeStyle: "short" })}</p>
+                <p className="mt-1 text-sm font-extrabold text-polar">{formatPolarDateTime(item.scheduledAt, { dateStyle: "long", timeStyle: "short" })}</p>
                 {item.notes ? <p className="mt-1 text-sm font-semibold leading-5 text-ink-soft">{item.notes}</p> : null}
               </article>
             ))}
