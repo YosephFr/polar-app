@@ -15,6 +15,9 @@ GIT_SHA="$(git rev-parse HEAD)"
 export NEXT_PUBLIC_BUILD_ID="$GIT_SHA"
 
 npm ci --include=dev
+npm run lint
+npm run typecheck
+npm test
 rm -rf .next.previous
 if [[ -d .next ]]; then
   mv .next .next.previous
@@ -28,7 +31,7 @@ restore_previous_build() {
 }
 
 trap restore_previous_build EXIT
-npm run check
+npm run build
 mkdir -p .next/standalone/.next
 cp -R public .next/standalone/
 cp -R .next/static .next/standalone/.next/
