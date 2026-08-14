@@ -1,0 +1,34 @@
+# Dependencies and builds
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Local runtime
+.data/
+.docker/
+*.log
+
+# Deployment artifacts
+artifacts/
+releases/
+*.tar.gz
+*.tgz
+
+# Internal project context
+AGENTS.md
+.private/
+docs/00-descubrimiento-y-alcance.md
+docs/evidence/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+
