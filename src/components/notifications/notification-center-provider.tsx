@@ -63,6 +63,8 @@ export function NotificationCenterProvider({
       const next = await response.json() as NotificationSnapshot;
       setSnapshot(next);
       setNow(next.serverNow);
+    } catch {
+      return;
     } finally {
       refreshingRef.current = false;
     }
