@@ -14,7 +14,7 @@ export GIT_SHA
 GIT_SHA="$(git rev-parse HEAD)"
 export NEXT_PUBLIC_BUILD_ID="$GIT_SHA"
 
-npm ci
+npm ci --include=dev
 npm run check
 mkdir -p .next/standalone/.next
 cp -R public .next/standalone/
