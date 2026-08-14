@@ -12,6 +12,7 @@ const schema = z.object({
   title: z.string().trim().min(2).max(160),
   scheduledAt: z.string().datetime(),
   notes: z.string().trim().max(500).nullable(),
+  reminderMinutes: z.number().int().min(0).max(10080).default(1440),
 });
 
 export async function POST(request: Request) {
@@ -23,8 +24,8 @@ export async function POST(request: Request) {
     await assertPatientAccess(user.id, input.patientId);
     const id = randomUUID();
     await db().execute(
-      "INSERT INTO appointments (id, patient_id, title, scheduled_at, notes, created_by) VALUES (?, ?, ?, ?, ?, ?)",
-      [id, input.patientId, input.title, new Date(input.scheduledAt), input.notes, user.id],
+      "INSERT INTO appointments (id, patient_id, title, scheduled_at, notes, reminder_minutes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [id, input.patientId, input.title, new Date(input.scheduledAt), input.notes, input.reminderMinutes, user.id],
     );
     return NextResponse.json({ ok: true, id });
   } catch (error) {

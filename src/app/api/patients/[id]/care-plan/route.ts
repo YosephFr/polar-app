@@ -18,10 +18,18 @@ const schema = z.object({
   premealTarget: z.number().int().min(50).max(300),
   correctionTarget: z.number().int().min(50).max(300),
   lowThreshold: z.number().int().min(40).max(100),
+  highThreshold: z.number().int().min(120).max(600).default(250),
+  autoFollowUpEnabled: z.boolean().default(true),
+  standardFollowUpMinutes: z.number().int().min(1).max(1440).default(120),
+  lowFollowUpMinutes: z.number().int().min(1).max(1440).default(15),
+  highFollowUpMinutes: z.number().int().min(1).max(1440).default(30),
   roundingIncrement: z.union([z.literal(0.5), z.literal(1)]),
   maxBolus: z.number().positive().max(200).nullable(),
   ratios: z.object({ breakfast: ratio, morning_snack: ratio, lunch: ratio, afternoon_snack: ratio, dinner: ratio }),
   hypoTreatmentNote: z.string().trim().max(500).nullable(),
+  emergencyContactName: z.string().trim().max(100).nullable().default(null),
+  emergencyContactPhone: z.string().trim().max(40).nullable().default(null),
+  emergencyServicePhone: z.string().trim().max(40).nullable().default(null),
 });
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {

@@ -14,6 +14,18 @@ The product is designed as a mobile-first Progressive Web App with a calm, appro
 - Progress celebrates safe habits and consistent logging, not glucose outcomes.
 - Private health information is never part of the source repository.
 
+## Capabilities
+
+- Shared profiles with family, patient, caregiver, and clinician roles
+- Versioned care-plan parameters and traceable dose records
+- Global timers with pause, resume, restart, editing, and automatic follow-up controls
+- Monthly calendar, appointment reminders, and reversible appointment removal
+- Unified notification center for timers, glucose alerts, appointments, connectivity, and app updates
+- Web Push delivery to subscribed devices, including installed Android PWAs
+- Offline record queue with idempotent synchronization after connectivity returns
+- Interactive glucose trends, selectable periods, PDF reports, CSV export, and mobile sharing
+- Optional emergency shortcuts, accessible display themes, and selectable progress mascots
+
 ## Stack
 
 - Next.js App Router and React
@@ -51,6 +63,24 @@ The production build uses the Next.js standalone server. Database migrations run
 Required production environment variables are listed in `.env.example`. Keep database credentials, the deployment webhook secret, and personal health information outside the repository.
 
 `NEXT_PUBLIC_POLAR_TIME_ZONE` defines the shared display time zone used for records and appointments. Configure it for the monitored person's location so every caregiver sees the same calendar day and time.
+
+### Push notifications
+
+Generate one VAPID key pair for each deployment:
+
+```bash
+npx web-push generate-vapid-keys --json
+```
+
+Configure `VAPID_SUBJECT`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and a strong `CRON_SECRET` in the Node.js application environment. `VAPID_SUBJECT` must be an HTTPS URL or a `mailto:` address controlled by the operator.
+
+The notification dispatcher is idempotent and should run once per minute. On cPanel, create a Cron Job that invokes the bundled client with the same application URL and cron secret:
+
+```bash
+APP_URL=https://polar.example CRON_SECRET='replace-with-the-configured-secret' /path/to/node /path/to/polar/scripts/dispatch-notifications.cjs
+```
+
+Users activate each device from the notification center. Android browsers can receive notifications after permission is granted; platform delivery remains subject to browser, operating-system, battery, and network policies. Polar reminders complement the care routine and must not be treated as guaranteed medical alarms.
 
 ## Safety boundary
 

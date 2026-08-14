@@ -101,8 +101,7 @@ export const mealLabels: Record<MealType, string> = {
   breakfast: "Desayuno",
   morning_snack: "Colación",
   lunch: "Almuerzo",
-  afternoon_snack: "Once / merienda",
+  afternoon_snack: "Merienda",
   dinner: "Cena",
   correction: "Solo corrección",
 };
-

@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   BowlFoodIcon,
+  ArrowCounterClockwiseIcon,
+  ArrowClockwiseIcon,
   CalculatorIcon,
   CaretDownIcon,
   ProhibitIcon,
@@ -19,6 +21,7 @@ import { formatPolarDateTime } from "@/lib/date-time";
 import { calculateDose, mealLabels, mealTypes, type DoseResult } from "@/lib/domain/calculator";
 import type { BolusRecord, PatientCarePlan } from "@/lib/db/data";
 import { usePolar } from "@/components/app/app-context";
+import { enqueueRecord, type OfflineRecordPayload } from "@/lib/client/offline-records";
 
 function formatDose(value: number | null) {
   if (value === null) return "—";
@@ -44,10 +47,18 @@ function RecentRecord({ record }: { record: BolusRecord | null }) {
   );
 }
 
-export function DoseCalculator({ carePlan, latestRecord }: { carePlan: PatientCarePlan; latestRecord: BolusRecord | null }) {
+type CalculatorDraft = {
+  mealType: (typeof mealTypes)[number];
+  glucose: string;
+  carbs: string;
+  activeInsulin: string;
+  activityAdjustmentPercent: string;
+};
+
+export function DoseCalculator({ carePlan, latestRecord, suggestedMeal }: { carePlan: PatientCarePlan; latestRecord: BolusRecord | null; suggestedMeal: (typeof mealTypes)[number] }) {
   const { patient } = usePolar();
   const router = useRouter();
-  const [mealType, setMealType] = useState<(typeof mealTypes)[number]>("breakfast");
+  const [mealType, setMealType] = useState<(typeof mealTypes)[number]>(suggestedMeal);
   const [glucose, setGlucose] = useState("");
   const [carbs, setCarbs] = useState("");
   const [activeInsulin, setActiveInsulin] = useState("0");
@@ -59,6 +70,8 @@ export function DoseCalculator({ carePlan, latestRecord }: { carePlan: PatientCa
   const [refreshing, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ text: string; tone: "success" | "error" } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [calculationHistory, setCalculationHistory] = useState<CalculatorDraft[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
   const target = mealType === "correction" ? carePlan.correctionTarget : carePlan.premealTarget;
   const input = useMemo(() => ({
@@ -91,6 +104,9 @@ export function DoseCalculator({ carePlan, latestRecord }: { carePlan: PatientCa
       const nextResult = calculateDose(carePlan, input);
       setResult(nextResult);
       setAdministeredDose(nextResult.recommendedDose === null ? "" : String(nextResult.recommendedDose));
+      const draft = { mealType, glucose, carbs, activeInsulin, activityAdjustmentPercent };
+      setCalculationHistory((current) => [...current.slice(0, historyIndex + 1), draft].slice(-20));
+      setHistoryIndex((current) => Math.min(current + 1, 19));
     } catch {
       setResult(null);
       setFeedback({ text: "No se pudo calcular la dosis con el plan actual", tone: "error" });
@@ -101,18 +117,37 @@ export function DoseCalculator({ carePlan, latestRecord }: { carePlan: PatientCa
     if (!result || saving) return;
     setSaving(true);
     setFeedback(null);
+    const payload: OfflineRecordPayload = {
+      clientId: crypto.randomUUID(),
+      patientId: patient.id,
+      ...input,
+      administeredDose: result.status === "blocked_low" ? null : administeredDose === "" ? null : Number(administeredDose),
+      notes: notes.trim() || null,
+      occurredAt: new Date().toISOString(),
+    };
+    const complete = (message: string, refreshServer: boolean) => {
+      setFeedback({ text: message, tone: "success" });
+      setFieldErrors({});
+      setResult(null);
+      setGlucose("");
+      setCarbs("");
+      setNotes("");
+      window.dispatchEvent(new Event("polar:center-refresh"));
+      if (refreshServer) startTransition(() => router.refresh());
+    };
+    if (!navigator.onLine) {
+      await enqueueRecord(payload);
+      complete("Registro guardado en el dispositivo", false);
+      setSaving(false);
+      return;
+    }
     try {
       const response = await fetch("/api/records", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientId: patient.id,
-          ...input,
-          administeredDose: result.status === "blocked_low" ? null : administeredDose === "" ? null : Number(administeredDose),
-          notes: notes.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
-      const body = (await response.json()) as ApiProblem;
+      const body = (await response.json()) as ApiProblem & { timer?: { id: string } | null };
       if (!response.ok) {
         const nextErrors = body.fieldErrors || {};
         setFieldErrors(nextErrors);
@@ -120,18 +155,33 @@ export function DoseCalculator({ carePlan, latestRecord }: { carePlan: PatientCa
         if (nextErrors.administeredDose) window.requestAnimationFrame(() => document.getElementById("administered-dose")?.focus());
         return;
       }
-      setFeedback({ text: result.status === "blocked_low" ? "Glucosa baja registrada" : "Registro guardado", tone: "success" });
-      setFieldErrors({});
-      setResult(null);
-      setGlucose("");
-      setCarbs("");
-      setNotes("");
-      startTransition(() => router.refresh());
+      complete(
+        result.status === "blocked_low"
+          ? "Glucosa baja registrada · control programado"
+          : body.timer
+            ? "Registro guardado · control programado"
+            : "Registro guardado",
+        true,
+      );
     } catch {
-      setFeedback({ text: "Revise la conexión e inténtelo de nuevo", tone: "error" });
+      await enqueueRecord(payload);
+      complete("Registro guardado en el dispositivo", false);
     } finally {
       setSaving(false);
     }
+  }
+
+  function restoreCalculation(index: number) {
+    const draft = calculationHistory[index];
+    if (!draft) return;
+    setMealType(draft.mealType);
+    setGlucose(draft.glucose);
+    setCarbs(draft.carbs);
+    setActiveInsulin(draft.activeInsulin);
+    setActivityAdjustmentPercent(draft.activityAdjustmentPercent);
+    setHistoryIndex(index);
+    setResult(null);
+    setFeedback(null);
   }
 
   return (
@@ -174,6 +224,12 @@ export function DoseCalculator({ carePlan, latestRecord }: { carePlan: PatientCa
         </details>
 
         <Button type="submit" icon={<CalculatorIcon size={24} weight="bold" />} className="mt-5 min-h-16 w-full rounded-[1.5rem] text-lg">Calcular dosis</Button>
+        {calculationHistory.length > 1 ? (
+          <div className="mt-2 flex justify-end gap-2" aria-label="Historial de cálculos">
+            <button type="button" disabled={historyIndex <= 0} onClick={() => restoreCalculation(historyIndex - 1)} className="flex min-h-11 items-center gap-1.5 rounded-[0.85rem] px-3 text-xs font-black text-ink-soft hover:bg-surface disabled:opacity-35"><ArrowCounterClockwiseIcon size={17} weight="bold" />Anterior</button>
+            <button type="button" disabled={historyIndex >= calculationHistory.length - 1} onClick={() => restoreCalculation(historyIndex + 1)} className="flex min-h-11 items-center gap-1.5 rounded-[0.85rem] px-3 text-xs font-black text-ink-soft hover:bg-surface disabled:opacity-35">Siguiente<ArrowClockwiseIcon size={17} weight="bold" /></button>
+          </div>
+        ) : null}
       </form>
 
       {result ? (

@@ -62,7 +62,7 @@ async function seedTestUsers() {
           correction_factor, premeal_target, correction_target, low_threshold,
           rounding_increment, max_bolus, ratio_breakfast, ratio_morning_snack,
           ratio_lunch, ratio_afternoon_snack, ratio_dinner, hypo_treatment_note, created_by
-        ) VALUES (?, ?, 1, 'Basal', 0, 'Rápida', 50, 100, 150, 70, 1, 20, 10, 10, 10, 10, 10, 'Seguí el plan personal para tratar una baja y volvé a medir antes de calcular.', ?)`,
+        ) VALUES (?, ?, 1, 'Basal', 0, 'Rápida', 50, 100, 150, 70, 1, 20, 10, 10, 10, 10, 10, 'Siga el plan personal para tratar una baja y vuelva a medir antes de calcular.', ?)`,
         [randomUUID(), patientId, ownerId],
       );
     }
@@ -80,4 +80,3 @@ if (require.main === module) {
 }
 
 module.exports = { seedTestUsers };
-

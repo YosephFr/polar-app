@@ -1,55 +1,43 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
+import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { BellIcon, CalendarPlusIcon, CheckIcon, TimerIcon } from "@phosphor-icons/react";
+import { CalendarPlusIcon, TimerIcon, TrashIcon, XIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Textarea } from "@/components/ui/field";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Toast } from "@/components/ui/feedback";
 import { PageHeader } from "@/components/ui/page-header";
 import { clearFieldError, focusFirstError, validateForm, type ApiProblem, type FieldErrors } from "@/lib/client/form-validation";
 import { formatPolarDateTime } from "@/lib/date-time";
-import type { Appointment, PatientTimer } from "@/lib/db/data";
+import type { Appointment, CalendarPayload } from "@/lib/db/data";
 import { usePolar } from "@/components/app/app-context";
+import { useNotificationCenter } from "@/components/notifications/notification-center-provider";
+import { MonthCalendar } from "./month-calendar";
+import { TimerList } from "./timer-list";
 
-function remainingLabel(dueAt: string, now: number) {
-  const distance = new Date(dueAt).getTime() - now;
-  if (distance <= 0) return "Ahora";
-  const minutes = Math.ceil(distance / 60000);
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `${hours} h ${rest ? `${rest} min` : ""}`.trim();
-}
-
-export function AgendaClient({ appointments, timers, initialNow }: { appointments: Appointment[]; timers: PatientTimer[]; initialNow: number }) {
+export function AgendaClient({
+  appointments,
+  calendar,
+  todayKey,
+}: {
+  appointments: Appointment[];
+  calendar: CalendarPayload;
+  todayKey: string;
+}) {
   const { patient } = usePolar();
+  const { refresh } = useNotificationCenter();
   const router = useRouter();
-  const [now, setNow] = useState(initialNow);
+  const [timerMinutes, setTimerMinutes] = useState("15");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [refreshing, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ text: string; tone: "success" | "error" | "info" } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const notified = useRef(new Set<string>());
+  const [hiddenAppointments, setHiddenAppointments] = useState<string[]>([]);
+  const [undoAppointment, setUndoAppointment] = useState<Appointment | null>(null);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
-    for (const timer of timers) {
-      if (new Date(timer.dueAt).getTime() <= now && !notified.current.has(timer.id)) {
-        notified.current.add(timer.id);
-        new Notification("Polar", { body: timer.label, icon: "/icons/icon-192.png", tag: timer.id });
-      }
-    }
-  }, [now, timers]);
-
-  const sortedAppointments = useMemo(
-    () => [...appointments].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)),
-    [appointments],
+  const visibleAppointments = useMemo(
+    () => appointments.filter((item) => !hiddenAppointments.includes(item.id)),
+    [appointments, hiddenAppointments],
   );
 
   function clearError(name: string) {
@@ -78,10 +66,11 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
         body: JSON.stringify({
           patientId: patient.id,
           label: String(form.get("label")),
-          dueAt: new Date(Date.now() + minutes * 60000).toISOString(),
+          dueAt: new Date(Date.now() + minutes * 60_000).toISOString(),
+          kind: "manual",
         }),
       });
-      const body = (await response.json()) as ApiProblem;
+      const body = await response.json() as ApiProblem;
       if (!response.ok) {
         const nextErrors = { ...(body.fieldErrors || {}) };
         if (nextErrors.dueAt) {
@@ -93,9 +82,10 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
         focusFirstError(formElement, nextErrors);
       } else {
         formElement.reset();
+        setTimerMinutes("15");
         setFieldErrors({});
         setFeedback({ text: "Temporizador iniciado", tone: "success" });
-        startTransition(() => router.refresh());
+        await refresh();
       }
     } catch {
       setFeedback({ text: "Revise la conexión e inténtelo de nuevo", tone: "error" });
@@ -115,7 +105,6 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
       return;
     }
     const form = new FormData(formElement);
-    const scheduled = String(form.get("scheduledAt"));
     setBusyAction("appointment");
     setFeedback(null);
     try {
@@ -125,11 +114,12 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
         body: JSON.stringify({
           patientId: patient.id,
           title: String(form.get("title")),
-          scheduledAt: new Date(scheduled).toISOString(),
+          scheduledAt: new Date(String(form.get("scheduledAt"))).toISOString(),
           notes: String(form.get("notes") || "").trim() || null,
+          reminderMinutes: Number(form.get("reminderMinutes")),
         }),
       });
-      const body = (await response.json()) as ApiProblem;
+      const body = await response.json() as ApiProblem;
       if (!response.ok) {
         const nextErrors = body.fieldErrors || {};
         setFieldErrors((current) => ({ ...current, ...nextErrors }));
@@ -139,6 +129,8 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
         formElement.reset();
         setFieldErrors({});
         setFeedback({ text: "Cita guardada", tone: "success" });
+        window.dispatchEvent(new Event("polar:calendar-refresh"));
+        await refresh();
         startTransition(() => router.refresh());
       }
     } catch {
@@ -148,96 +140,89 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
     }
   }
 
-  async function completeTimer(id: string) {
-    setBusyAction(`complete:${id}`);
+  async function removeAppointment(appointment: Appointment) {
+    setBusyAction(`delete:${appointment.id}`);
     try {
-      const response = await fetch(`/api/timers/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "done" }),
-      });
-      const body = (await response.json()) as ApiProblem;
+      const response = await fetch(`/api/appointments/${appointment.id}`, { method: "DELETE" });
       if (!response.ok) {
-        setFeedback({ text: body.error || "No se pudo completar el temporizador", tone: "error" });
+        const body = await response.json().catch(() => ({})) as ApiProblem;
+        setFeedback({ text: body.error || "No se pudo eliminar la cita", tone: "error" });
         return;
       }
-      setFeedback({ text: "Temporizador completado", tone: "success" });
-      startTransition(() => router.refresh());
-    } catch {
-      setFeedback({ text: "Revise la conexión e inténtelo de nuevo", tone: "error" });
+      setHiddenAppointments((current) => [...current, appointment.id]);
+      setUndoAppointment(appointment);
+      window.dispatchEvent(new Event("polar:calendar-refresh"));
+      await refresh();
     } finally {
       setBusyAction(null);
     }
   }
 
-  async function requestNotifications() {
-    if (!("Notification" in window)) {
-      setFeedback({ text: "Este navegador no admite notificaciones", tone: "error" });
-      return;
+  async function restoreAppointment() {
+    if (!undoAppointment) return;
+    const appointment = undoAppointment;
+    setBusyAction(`restore:${appointment.id}`);
+    try {
+      const response = await fetch(`/api/appointments/${appointment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restore" }),
+      });
+      if (!response.ok) {
+        setFeedback({ text: "No se pudo recuperar la cita", tone: "error" });
+        return;
+      }
+      setHiddenAppointments((current) => current.filter((id) => id !== appointment.id));
+      setUndoAppointment(null);
+      window.dispatchEvent(new Event("polar:calendar-refresh"));
+      await refresh();
+    } finally {
+      setBusyAction(null);
     }
-    const permission = await Notification.requestPermission();
-    setFeedback(permission === "granted" ? { text: "Notificaciones activadas", tone: "success" } : { text: "Las notificaciones no están habilitadas", tone: "info" });
   }
 
   return (
     <div className="min-w-0">
-      <PageHeader
-        title="Agenda"
-        subtitle={patient.name}
-        action={(
-          <button
-            type="button"
-            onClick={requestNotifications}
-            aria-label="Activar notificaciones"
-            className="flex size-12 shrink-0 items-center justify-center rounded-[1rem] border border-polar/15 bg-polar-soft text-polar transition-transform active:scale-95"
-          >
-            <BellIcon size={23} weight="duotone" />
-          </button>
-        )}
-      />
+      <PageHeader title="Agenda" subtitle={patient.name} />
 
-      {timers.length > 0 ? (
-        <section className="mt-7">
-          <h2 className="text-lg font-black text-polar-dark">Temporizadores activos</h2>
-          <div className="mt-3 flex flex-col gap-3">
-            {timers.map((timer) => (
-              <article key={timer.id} className="flex min-w-0 items-center gap-3 rounded-[1.35rem] bg-polar px-4 py-4 text-on-accent shadow-action sm:gap-4">
-                <TimerIcon className="shrink-0" size={25} weight="duotone" />
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate font-black">{timer.label}</h3>
-                  <p className="tnum mt-0.5 text-sm font-extrabold text-on-accent/80">{remainingLabel(timer.dueAt, now)}</p>
-                </div>
-                <button type="button" disabled={busyAction === `complete:${timer.id}` || refreshing} onClick={() => completeTimer(timer.id)} aria-label="Marcar como hecho" className="flex size-11 shrink-0 items-center justify-center rounded-[0.95rem] bg-panel text-polar transition-transform active:scale-95 disabled:opacity-55">
-                  <CheckIcon size={21} weight="bold" />
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <TimerList onFeedback={(text, tone) => setFeedback({ text, tone })} />
 
       <section className="mt-7 rounded-[1.5rem] border border-polar/10 bg-panel p-4 shadow-card sm:p-6">
         <h2 className="text-lg font-black text-polar-dark">Nuevo temporizador</h2>
+        <div className="mt-3 flex gap-2" aria-label="Duraciones frecuentes">
+          {[15, 120].map((minutes) => (
+            <button key={minutes} type="button" onClick={() => setTimerMinutes(String(minutes))} className={`min-h-10 rounded-[0.8rem] px-3 text-xs font-black transition-colors ${timerMinutes === String(minutes) ? "bg-polar text-white" : "bg-surface text-polar-dark"}`}>
+              {minutes === 120 ? "2 horas" : `${minutes} min`}
+            </button>
+          ))}
+        </div>
         <form onSubmit={createTimer} noValidate className="mt-4 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6.5rem,7rem)] gap-3 max-[350px]:grid-cols-1">
           <Field label="Recordatorio" htmlFor="timer-label" error={fieldErrors.label}>
             <Input id="timer-label" name="label" minLength={2} maxLength={120} required placeholder="Volver a medir" onChange={() => clearError("label")} aria-invalid={Boolean(fieldErrors.label)} />
           </Field>
           <Field label="En minutos" htmlFor="timer-minutes" error={fieldErrors.minutes}>
-            <Input id="timer-minutes" name="minutes" type="number" inputMode="numeric" min="1" max="1440" defaultValue="15" required onChange={() => clearError("minutes")} aria-invalid={Boolean(fieldErrors.minutes)} />
+            <Input id="timer-minutes" name="minutes" type="number" inputMode="numeric" min="1" max="1440" value={timerMinutes} required onChange={(event) => { setTimerMinutes(event.target.value); clearError("minutes"); }} aria-invalid={Boolean(fieldErrors.minutes)} />
           </Field>
-          <Button type="submit" loading={busyAction === "timer" || refreshing} icon={<TimerIcon size={20} weight="bold" />} className="col-span-full min-h-14 max-[350px]:col-span-1">Iniciar</Button>
+          <Button type="submit" loading={busyAction === "timer"} icon={<TimerIcon size={20} weight="bold" />} className="col-span-full min-h-14 max-[350px]:col-span-1">Iniciar</Button>
         </form>
       </section>
 
+      <MonthCalendar patientId={patient.id} initial={calendar} todayKey={todayKey} />
+
       <section className="mt-7 rounded-[1.5rem] border border-polar/10 bg-panel p-4 shadow-card sm:p-6">
         <h2 className="text-lg font-black text-polar-dark">Próximas citas</h2>
-        {sortedAppointments.length ? (
+        {visibleAppointments.length ? (
           <div className="mt-3 divide-y divide-border">
-            {sortedAppointments.map((item) => (
-              <article key={item.id} className="min-w-0 py-4">
-                <p className="truncate font-black">{item.title}</p>
-                <p className="mt-1 text-sm font-extrabold text-polar">{formatPolarDateTime(item.scheduledAt, { dateStyle: "long", timeStyle: "short" })}</p>
-                {item.notes ? <p className="mt-1 text-sm font-semibold leading-5 text-ink-soft">{item.notes}</p> : null}
+            {visibleAppointments.map((item) => (
+              <article key={item.id} className="flex min-w-0 items-start gap-3 py-4">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-black">{item.title}</p>
+                  <p className="mt-1 text-sm font-extrabold text-polar">{formatPolarDateTime(item.scheduledAt, { dateStyle: "long", timeStyle: "short" })}</p>
+                  {item.notes ? <p className="mt-1 text-sm font-semibold leading-5 text-ink-soft">{item.notes}</p> : null}
+                </div>
+                <button type="button" disabled={busyAction === `delete:${item.id}`} onClick={() => void removeAppointment(item)} aria-label={`Eliminar ${item.title}`} className="flex size-11 shrink-0 items-center justify-center rounded-[0.9rem] text-danger hover:bg-danger-soft disabled:opacity-45">
+                  <TrashIcon size={20} weight="bold" />
+                </button>
               </article>
             ))}
           </div>
@@ -249,9 +234,19 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
           <Field label="Título" htmlFor="appointment-title" error={fieldErrors.title}>
             <Input id="appointment-title" name="title" minLength={2} maxLength={160} required placeholder="Control con el equipo" onChange={() => clearError("title")} aria-invalid={Boolean(fieldErrors.title)} />
           </Field>
-          <Field label="Fecha y hora" htmlFor="appointment-date" error={fieldErrors.scheduledAt}>
-            <Input id="appointment-date" name="scheduledAt" type="datetime-local" required onChange={() => clearError("scheduledAt")} aria-invalid={Boolean(fieldErrors.scheduledAt)} />
-          </Field>
+          <div className="grid min-w-0 grid-cols-1 gap-4 min-[500px]:grid-cols-2">
+            <Field label="Fecha y hora" htmlFor="appointment-date" error={fieldErrors.scheduledAt}>
+              <Input id="appointment-date" name="scheduledAt" type="datetime-local" required onChange={() => clearError("scheduledAt")} aria-invalid={Boolean(fieldErrors.scheduledAt)} />
+            </Field>
+            <Field label="Avisar antes" htmlFor="appointment-reminder">
+              <Select id="appointment-reminder" name="reminderMinutes" defaultValue="1440">
+                <option value="60">1 hora</option>
+                <option value="180">3 horas</option>
+                <option value="1440">1 día</option>
+                <option value="2880">2 días</option>
+              </Select>
+            </Field>
+          </div>
           <Field label="Nota opcional" htmlFor="appointment-notes">
             <Textarea id="appointment-notes" name="notes" maxLength={500} />
           </Field>
@@ -260,6 +255,13 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
       </section>
 
       {feedback ? <Toast message={feedback.text} tone={feedback.tone} onDismiss={() => setFeedback(null)} /> : null}
+      {undoAppointment ? (
+        <div className="page-enter fixed inset-x-4 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] z-[66] mx-auto flex max-w-md items-center gap-3 rounded-[1.35rem] bg-ink px-4 py-3.5 text-white shadow-float" role="status">
+          <span className="min-w-0 flex-1 text-sm font-extrabold">Cita eliminada</span>
+          <button type="button" disabled={busyAction === `restore:${undoAppointment.id}`} onClick={() => void restoreAppointment()} className="min-h-10 px-2 text-sm font-black text-white">Deshacer</button>
+          <button type="button" onClick={() => setUndoAppointment(null)} aria-label="Cerrar" className="flex size-9 items-center justify-center rounded-[0.75rem] text-white/70"><XIcon size={18} weight="bold" /></button>
+        </div>
+      ) : null}
     </div>
   );
 }

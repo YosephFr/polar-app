@@ -3,6 +3,7 @@ node_modules/
 .next/
 out/
 coverage/
+.playwright-cli/
 *.tsbuildinfo
 
 # Local environment
