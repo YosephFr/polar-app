@@ -11,8 +11,12 @@ type PatientRow = RowDataPacket & {
   birth_date: string | null;
   sex: string | null;
   diabetes_type: string;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  emergency_service_phone: string | null;
   role: string;
   is_default: number;
+  active_mascot: string;
 };
 
 type PlanRow = RowDataPacket & {
@@ -25,6 +29,11 @@ type PlanRow = RowDataPacket & {
   premeal_target: number;
   correction_target: number;
   low_threshold: number;
+  high_threshold: number;
+  auto_follow_up_enabled: number;
+  standard_follow_up_minutes: number;
+  low_follow_up_minutes: number;
+  high_follow_up_minutes: number;
   rounding_increment: number;
   max_bolus: number | null;
   ratio_breakfast: number;
@@ -41,8 +50,12 @@ export type PatientSummary = {
   birthDate: string | null;
   sex: string | null;
   diabetesType: string;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyServicePhone: string | null;
   role: string;
   isDefault: boolean;
+  activeMascot: string;
 };
 
 export type PatientCarePlan = CarePlan & {
@@ -51,12 +64,22 @@ export type PatientCarePlan = CarePlan & {
   basalDose: number | null;
   rapidInsulinName: string | null;
   hypoTreatmentNote: string | null;
+  highThreshold: number;
+  autoFollowUpEnabled: boolean;
+  standardFollowUpMinutes: number;
+  lowFollowUpMinutes: number;
+  highFollowUpMinutes: number;
+};
+
+export type UserPreferences = {
+  theme: "polar" | "night" | "contrast";
 };
 
 export type AppContext = {
   patients: PatientSummary[];
   patient: PatientSummary;
   carePlan: PatientCarePlan;
+  preferences: UserPreferences;
 };
 
 function mapPatient(row: PatientRow): PatientSummary {
@@ -66,8 +89,12 @@ function mapPatient(row: PatientRow): PatientSummary {
     birthDate: row.birth_date,
     sex: row.sex,
     diabetesType: row.diabetes_type,
+    emergencyContactName: row.emergency_contact_name,
+    emergencyContactPhone: row.emergency_contact_phone,
+    emergencyServicePhone: row.emergency_service_phone,
     role: row.role,
     isDefault: Boolean(row.is_default),
+    activeMascot: row.active_mascot,
   };
 }
 
@@ -82,6 +109,11 @@ function mapPlan(row: PlanRow): PatientCarePlan {
     premealTarget: row.premeal_target,
     correctionTarget: row.correction_target,
     lowThreshold: row.low_threshold,
+    highThreshold: row.high_threshold,
+    autoFollowUpEnabled: Boolean(row.auto_follow_up_enabled),
+    standardFollowUpMinutes: row.standard_follow_up_minutes,
+    lowFollowUpMinutes: row.low_follow_up_minutes,
+    highFollowUpMinutes: row.high_follow_up_minutes,
     roundingIncrement: row.rounding_increment,
     maxBolus: row.max_bolus,
     ratios: {
@@ -98,7 +130,8 @@ function mapPlan(row: PlanRow): PatientCarePlan {
 export async function listPatients(userId: string) {
   const [rows] = await db().execute<PatientRow[]>(
     `SELECT p.id, p.name, DATE_FORMAT(p.birth_date, '%Y-%m-%d') AS birth_date,
-            p.sex, p.diabetes_type, pm.role, pm.is_default
+            p.sex, p.diabetes_type, p.emergency_contact_name, p.emergency_contact_phone,
+            p.emergency_service_phone, pm.role, pm.is_default, pm.active_mascot
      FROM patient_members pm
      JOIN patients p ON p.id = pm.patient_id
      WHERE pm.user_id = ?
@@ -114,15 +147,28 @@ const readAppContext = cache(async (userId: string): Promise<AppContext | null> 
   const store = await cookies();
   const requestedId = store.get("polar_patient")?.value;
   const patient = patients.find((item) => item.id === requestedId) || patients[0];
-  const [planRows] = await db().execute<PlanRow[]>(
-    `SELECT * FROM care_plan_versions
-     WHERE patient_id = ?
-     ORDER BY version DESC
-     LIMIT 1`,
-    [patient.id],
-  );
+  const [planResult, preferenceResult] = await Promise.all([
+    db().execute<PlanRow[]>(
+      `SELECT * FROM care_plan_versions
+       WHERE patient_id = ?
+       ORDER BY version DESC
+       LIMIT 1`,
+      [patient.id],
+    ),
+    db().execute<(RowDataPacket & { theme: UserPreferences["theme"] })[]>(
+      "SELECT theme FROM user_preferences WHERE user_id = ? LIMIT 1",
+      [userId],
+    ),
+  ]);
+  const [planRows] = planResult;
+  const [preferenceRows] = preferenceResult;
   if (!planRows[0]) throw new Error("The monitored person does not have a care plan");
-  return { patients, patient, carePlan: mapPlan(planRows[0]) };
+  return {
+    patients,
+    patient,
+    carePlan: mapPlan(planRows[0]),
+    preferences: { theme: preferenceRows[0]?.theme || "polar" },
+  };
 });
 
 export const getAppContext = readAppContext;
@@ -287,6 +333,14 @@ export type NewPatientInput = {
   maxBolus: number | null;
   ratios: Record<Exclude<MealType, "correction">, number>;
   hypoTreatmentNote: string | null;
+  highThreshold: number;
+  autoFollowUpEnabled: boolean;
+  standardFollowUpMinutes: number;
+  lowFollowUpMinutes: number;
+  highFollowUpMinutes: number;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyServicePhone: string | null;
 };
 
 export async function createPatient(userId: string, input: NewPatientInput) {
@@ -300,8 +354,14 @@ export async function createPatient(userId: string, input: NewPatientInput) {
     );
     const makeDefault = Number(memberships[0]?.total || 0) === 0;
     await connection.execute(
-      "INSERT INTO patients (id, created_by, name, birth_date, sex, diabetes_type) VALUES (?, ?, ?, ?, ?, 'type1')",
-      [patientId, userId, input.name, input.birthDate, input.sex],
+      `INSERT INTO patients (
+        id, created_by, name, birth_date, sex, diabetes_type,
+        emergency_contact_name, emergency_contact_phone, emergency_service_phone
+      ) VALUES (?, ?, ?, ?, ?, 'type1', ?, ?, ?)`,
+      [
+        patientId, userId, input.name, input.birthDate, input.sex,
+        input.emergencyContactName, input.emergencyContactPhone, input.emergencyServicePhone,
+      ],
     );
     await connection.execute(
       "INSERT INTO patient_members (patient_id, user_id, role, is_default) VALUES (?, ?, 'owner', ?)",
@@ -332,14 +392,17 @@ async function insertCarePlan(
   await connection.execute(
     `INSERT INTO care_plan_versions (
       id, patient_id, version, basal_insulin_name, basal_dose, rapid_insulin_name,
-      correction_factor, premeal_target, correction_target, low_threshold,
-      rounding_increment, max_bolus, ratio_breakfast, ratio_morning_snack,
+      correction_factor, premeal_target, correction_target, low_threshold, high_threshold,
+      auto_follow_up_enabled, standard_follow_up_minutes, low_follow_up_minutes,
+      high_follow_up_minutes, rounding_increment, max_bolus, ratio_breakfast, ratio_morning_snack,
       ratio_lunch, ratio_afternoon_snack, ratio_dinner, hypo_treatment_note, created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       randomUUID(), patientId, version, input.basalInsulinName, input.basalDose,
       input.rapidInsulinName, input.correctionFactor, input.premealTarget,
-      input.correctionTarget, input.lowThreshold, input.roundingIncrement,
+      input.correctionTarget, input.lowThreshold, input.highThreshold,
+      input.autoFollowUpEnabled, input.standardFollowUpMinutes,
+      input.lowFollowUpMinutes, input.highFollowUpMinutes, input.roundingIncrement,
       input.maxBolus, input.ratios.breakfast, input.ratios.morning_snack,
       input.ratios.lunch, input.ratios.afternoon_snack, input.ratios.dinner,
       input.hypoTreatmentNote, userId,
@@ -363,8 +426,12 @@ export async function updatePatientCarePlan(userId: string, patientId: string, i
     );
     const nextVersion = Number(versionRows[0]?.version || 0) + 1;
     await connection.execute(
-      "UPDATE patients SET name = ?, birth_date = ?, sex = ? WHERE id = ?",
-      [input.name, input.birthDate, input.sex, patientId],
+      `UPDATE patients SET name = ?, birth_date = ?, sex = ?, emergency_contact_name = ?,
+       emergency_contact_phone = ?, emergency_service_phone = ? WHERE id = ?`,
+      [
+        input.name, input.birthDate, input.sex, input.emergencyContactName,
+        input.emergencyContactPhone, input.emergencyServicePhone, patientId,
+      ],
     );
     await insertCarePlan(connection, userId, patientId, nextVersion, input);
     await connection.execute(
