@@ -13,6 +13,7 @@ import {
 import { usePwaUpdate } from "@/components/pwa/pwa-provider";
 import { usePolar } from "@/components/app/app-context";
 import { disablePush, enablePush, readPushCapability, type PushCapability } from "@/lib/client/push";
+import { flushQueuedRecords, initializeOfflineRecords } from "@/lib/client/offline-records";
 import type { NotificationSnapshot } from "@/lib/db/notifications";
 
 type NotificationCenterValue = {
@@ -70,14 +71,19 @@ export function NotificationCenterProvider({
   useEffect(() => {
     const updateConnection = () => {
       setOnline(navigator.onLine);
-      if (navigator.onLine) void refresh();
+      if (navigator.onLine) {
+        void flushQueuedRecords().then(() => refresh());
+      }
     };
     const updateSync = (event: Event) => {
       const detail = (event as CustomEvent<{ pending: number }>).detail;
       setPendingSync(Math.max(0, detail?.pending || 0));
     };
     const updateCenter = () => void refresh();
-    const initial = window.setTimeout(updateConnection, 0);
+    const initial = window.setTimeout(() => {
+      setOnline(navigator.onLine);
+      void initializeOfflineRecords().then(() => refresh());
+    }, 0);
     window.addEventListener("online", updateConnection);
     window.addEventListener("offline", updateConnection);
     window.addEventListener("polar:sync-status", updateSync);
