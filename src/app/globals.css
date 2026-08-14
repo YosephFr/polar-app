@@ -116,6 +116,41 @@
   }
 }
 
+[data-theme="night"] {
+  color-scheme: dark;
+  --color-canvas: #162227;
+  --color-panel: #1f3036;
+  --color-surface: #293c42;
+  --color-surface-strong: #334a50;
+  --color-recessed: #21343a;
+  --color-ink: #f4f7f6;
+  --color-ink-soft: #b8c7ca;
+  --color-ink-faint: #8fa2a6;
+  --color-border: #375057;
+  --color-border-strong: #49636a;
+  --color-polar: #42b7b5;
+  --color-polar-dark: #75d0cd;
+  --color-polar-soft: #254447;
+  --color-success-soft: #203f34;
+  --color-warning-soft: #443522;
+  --color-danger-soft: #482b31;
+}
+
+[data-theme="contrast"] {
+  --color-canvas: #ffffff;
+  --color-panel: #ffffff;
+  --color-surface: #eef6f5;
+  --color-surface-strong: #dcecea;
+  --color-ink: #111b20;
+  --color-ink-soft: #32424a;
+  --color-ink-faint: #52636b;
+  --color-border: #9badaa;
+  --color-border-strong: #506b69;
+  --color-polar: #006f72;
+  --color-polar-dark: #005c5f;
+  --color-polar-soft: #d3eeec;
+}
+
 @utility app-content-bottom {
   padding-bottom: calc(8.75rem + env(safe-area-inset-bottom));
 }

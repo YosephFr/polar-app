@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { UserCircleIcon } from "@phosphor-icons/react";
 import { PolarLogo, PolarMark } from "@/components/brand/polar-logo";
 import { Select } from "@/components/ui/field";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { usePolar } from "./app-context";
 
 export function AppHeader() {
@@ -60,6 +61,7 @@ export function AppHeader() {
               {patients.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </Select>
           </div>
+          <NotificationBell />
           <Link
             href="/perfil"
             aria-label="Abrir perfil"
