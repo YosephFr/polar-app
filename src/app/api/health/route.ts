@@ -10,11 +10,15 @@ export async function GET() {
       "SELECT COUNT(*) AS migrations FROM _polar_migrations",
     );
     return NextResponse.json(
-      { status: "ok", database: "ok", migrations: rows[0]?.migrations ?? 0, revision: process.env.GIT_SHA || "development" },
+      {
+        status: "ok",
+        database: "ok",
+        migrations: rows[0]?.migrations ?? 0,
+        revision: process.env.NEXT_PUBLIC_BUILD_ID || process.env.GIT_SHA || "development",
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {
     return NextResponse.json({ status: "error", database: "error" }, { status: 503 });
   }
 }
-
