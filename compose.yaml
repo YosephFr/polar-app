@@ -32,6 +32,7 @@ services:
       DB_PASSWORD: polar
       APP_URL: http://localhost:4310
       NEXT_PUBLIC_BUILD_ID: development
+      NEXT_PUBLIC_POLAR_TIME_ZONE: America/Santiago
       GIT_SHA: development
       SEED_TEST_USERS: "false"
     ports:
@@ -47,4 +48,3 @@ services:
 volumes:
   polar_mysql:
   polar_node_modules:
-

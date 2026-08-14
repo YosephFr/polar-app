@@ -13,9 +13,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!context) redirect("/bienvenida");
   return (
     <PolarContextProvider value={{ user, ...context }}>
-      <div className="min-h-dvh bg-white">
+      <div className="min-h-dvh min-w-0 overflow-x-clip bg-canvas">
         <AppHeader />
-        <main className="mx-auto w-full max-w-3xl px-5 pb-tabbar-safe pt-7 sm:px-8 sm:pt-9">{children}</main>
+        <main className="app-content-bottom mx-auto min-w-0 w-full max-w-4xl px-4 pt-4 sm:px-7 sm:pt-7">{children}</main>
         <AppTabBar />
       </div>
     </PolarContextProvider>

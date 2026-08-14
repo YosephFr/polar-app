@@ -50,6 +50,8 @@ The production build uses the Next.js standalone server. Database migrations run
 
 Required production environment variables are listed in `.env.example`. Keep database credentials, the deployment webhook secret, and personal health information outside the repository.
 
+`NEXT_PUBLIC_POLAR_TIME_ZONE` defines the shared display time zone used for records and appointments. Configure it for the monitored person's location so every caregiver sees the same calendar day and time.
+
 ## Safety boundary
 
 Polar records and applies parameters entered from an individual care plan. It does not diagnose, prescribe treatment, or replace guidance from a diabetes care team. Urgent symptoms or severe glucose events require the person's established emergency plan and appropriate medical assistance.

@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { RowDataPacket } from "mysql2";
@@ -50,7 +51,7 @@ export async function destroySession() {
   store.delete("polar_patient");
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
+const readSessionUser = cache(async (): Promise<SessionUser | null> => {
   const store = await cookies();
   const token = store.get(sessionCookie)?.value;
   if (!token) return null;
@@ -65,11 +66,12 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const row = rows[0];
   if (!row) return null;
   return { id: row.id, username: row.username, email: row.email, displayName: row.display_name };
-}
+});
+
+export const getSessionUser = readSessionUser;
 
 export async function requireUser() {
   const user = await getSessionUser();
   if (!user) redirect("/entrar");
   return user;
 }
-

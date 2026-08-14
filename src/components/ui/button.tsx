@@ -1,3 +1,4 @@
+import { CircleNotchIcon } from "@phosphor-icons/react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -7,10 +8,10 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variants = {
-  primary: "bg-polar text-white border-polar active:bg-polar-dark",
-  secondary: "bg-white text-ink border-border-strong active:bg-surface",
-  danger: "bg-danger text-white border-danger",
-  ghost: "bg-transparent text-polar border-transparent active:bg-polar-soft",
+  primary: "border-polar bg-polar text-on-accent shadow-action hover:bg-polar-dark active:bg-polar-dark",
+  secondary: "border-border-strong bg-panel text-ink shadow-field hover:border-polar/45 hover:bg-surface active:bg-surface-strong",
+  danger: "border-danger bg-danger text-on-accent shadow-field hover:bg-danger/90",
+  ghost: "border-transparent bg-transparent text-polar hover:bg-polar-soft active:bg-polar-soft",
 };
 
 export function Button({
@@ -28,12 +29,11 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`relative inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-5 text-base font-bold transition-[transform,background-color,border-color] duration-150 active:scale-[0.985] disabled:pointer-events-none disabled:opacity-55 ${variants[variant]} ${className}`}
+      className={`relative inline-flex min-h-13 min-w-0 items-center justify-center gap-2.5 rounded-[1.125rem] border px-5 text-base font-extrabold transition-[transform,background-color,border-color,box-shadow] duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-55 ${variants[variant]} ${className}`}
       {...props}
     >
-      {loading ? <span className="size-5 animate-spin rounded-full border-2 border-current border-r-transparent" /> : icon}
+      {loading ? <CircleNotchIcon size={21} weight="bold" className="animate-spin" /> : icon}
       {loading ? <span className="sr-only">Cargando</span> : children}
     </button>
   );
 }
-

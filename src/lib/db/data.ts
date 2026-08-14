@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { db } from "./pool";
@@ -107,7 +108,7 @@ export async function listPatients(userId: string) {
   return rows.map(mapPatient);
 }
 
-export async function getAppContext(userId: string): Promise<AppContext | null> {
+const readAppContext = cache(async (userId: string): Promise<AppContext | null> => {
   const patients = await listPatients(userId);
   if (patients.length === 0) return null;
   const store = await cookies();
@@ -122,7 +123,9 @@ export async function getAppContext(userId: string): Promise<AppContext | null> 
   );
   if (!planRows[0]) throw new Error("The monitored person does not have a care plan");
   return { patients, patient, carePlan: mapPlan(planRows[0]) };
-}
+});
+
+export const getAppContext = readAppContext;
 
 export async function assertPatientAccess(userId: string, patientId: string) {
   const [rows] = await db().execute<(RowDataPacket & { role: string })[]>(
@@ -210,27 +213,32 @@ export type PatientTimer = {
 
 export async function listAgenda(userId: string, patientId: string) {
   await assertPatientAccess(userId, patientId);
-  const [clockRows] = await db().execute<(RowDataPacket & { now_ms: number })[]>(
-    "SELECT UNIX_TIMESTAMP(UTC_TIMESTAMP(3)) * 1000 AS now_ms",
-  );
-  const [appointmentRows] = await db().execute<(RowDataPacket & {
-    id: string;
-    title: string;
-    scheduled_at: Date;
-    notes: string | null;
-  })[]>(
-    "SELECT id, title, scheduled_at, notes FROM appointments WHERE patient_id = ? AND scheduled_at >= UTC_TIMESTAMP(3) ORDER BY scheduled_at ASC LIMIT 50",
-    [patientId],
-  );
-  const [timerRows] = await db().execute<(RowDataPacket & {
-    id: string;
-    label: string;
-    due_at: Date;
-    status: string;
-  })[]>(
-    "SELECT id, label, due_at, status FROM timers WHERE patient_id = ? AND status = 'active' ORDER BY due_at ASC LIMIT 50",
-    [patientId],
-  );
+  const [clockResult, appointmentResult, timerResult] = await Promise.all([
+    db().execute<(RowDataPacket & { now_ms: number })[]>(
+      "SELECT UNIX_TIMESTAMP(UTC_TIMESTAMP(3)) * 1000 AS now_ms",
+    ),
+    db().execute<(RowDataPacket & {
+      id: string;
+      title: string;
+      scheduled_at: Date;
+      notes: string | null;
+    })[]>(
+      "SELECT id, title, scheduled_at, notes FROM appointments WHERE patient_id = ? AND scheduled_at >= UTC_TIMESTAMP(3) ORDER BY scheduled_at ASC LIMIT 50",
+      [patientId],
+    ),
+    db().execute<(RowDataPacket & {
+      id: string;
+      label: string;
+      due_at: Date;
+      status: string;
+    })[]>(
+      "SELECT id, label, due_at, status FROM timers WHERE patient_id = ? AND status = 'active' ORDER BY due_at ASC LIMIT 50",
+      [patientId],
+    ),
+  ]);
+  const [clockRows] = clockResult;
+  const [appointmentRows] = appointmentResult;
+  const [timerRows] = timerResult;
   return {
     initialNow: Number(clockRows[0]?.now_ms || 0),
     appointments: appointmentRows.map<Appointment>((row) => ({
