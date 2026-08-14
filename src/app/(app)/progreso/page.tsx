@@ -6,10 +6,12 @@ import {
   LockSimpleIcon,
   WarningIcon,
 } from "@phosphor-icons/react/ssr";
-import { getAppContext, listBolusRecords } from "@/lib/db/data";
+import { getAppContext } from "@/lib/db/data";
 import { requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { polarDateKey } from "@/lib/date-time";
+import { getReportData } from "@/lib/reports";
+import { GlucoseAnalytics } from "@/components/progress/glucose-analytics";
 
 export const metadata = { title: "Progreso" };
 
@@ -30,7 +32,8 @@ export default async function ProgressPage() {
   const user = await requireUser();
   const context = await getAppContext(user.id);
   if (!context) return null;
-  const records = await listBolusRecords(user.id, context.patient.id, 200);
+  const report = await getReportData(user.id, context.patient.id, 90);
+  const records = report.records;
   const days = new Set(records.map((record) => polarDateKey(record.occurredAt))).size;
   const administered = records.filter((record) => record.status === "administered").length;
   const lows = records.filter((record) => record.status === "blocked_low").length;
@@ -59,6 +62,13 @@ export default async function ProgressPage() {
           <span className="text-sm font-black">Glucosas bajas registradas: {lows}</span>
         </div>
       ) : null}
+
+      <GlucoseAnalytics
+        patientId={context.patient.id}
+        points={records.map((record) => ({ id: record.id, glucose: record.glucose, occurredAt: record.occurredAt }))}
+        nowIso={report.generatedAt}
+        lowBoundary={report.lowBoundary}
+      />
 
       <section className="mt-9 rounded-[1.75rem] border border-polar/10 bg-panel p-4 shadow-card sm:p-6">
         <div className="flex min-w-0 items-start justify-between gap-4">
