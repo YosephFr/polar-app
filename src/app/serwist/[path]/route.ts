@@ -6,8 +6,6 @@ export const { dynamic, dynamicParams, revalidate, generateStaticParams, GET } =
   swSrc: "src/sw.ts",
   additionalPrecacheEntries: [
     { url: "/sin-conexion", revision },
-    { url: "/icons/icon-192.png", revision },
   ],
   useNativeEsbuild: true,
 });
-
