@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { closeSync, mkdirSync, openSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync } from "node:fs";
 import { spawn } from "node:child_process";
+import { join, resolve } from "node:path";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -12,6 +13,12 @@ function validSignature(body: string, signature: string | null, secret: string) 
   const receivedBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
   return receivedBuffer.length === expectedBuffer.length && timingSafeEqual(receivedBuffer, expectedBuffer);
+}
+
+function applicationRoot() {
+  const current = process.cwd();
+  const candidates = [current, resolve(current, "..", "..")];
+  return candidates.find((candidate) => existsSync(join(candidate, "scripts", "deploy.sh"))) || current;
 }
 
 export async function POST(request: Request) {
@@ -26,10 +33,11 @@ export async function POST(request: Request) {
   const payload = JSON.parse(body) as { ref?: string };
   if (event !== "push" || payload.ref !== "refs/heads/main") return NextResponse.json({ ignored: true });
 
-  mkdirSync("logs", { recursive: true });
-  const log = openSync("logs/deploy.log", "a");
-  const child = spawn("/bin/bash", ["scripts/deploy.sh"], {
-    cwd: process.cwd(),
+  const root = applicationRoot();
+  mkdirSync(join(root, "logs"), { recursive: true });
+  const log = openSync(join(root, "logs", "deploy.log"), "a");
+  const child = spawn("/bin/bash", [join(root, "scripts", "deploy.sh")], {
+    cwd: root,
     detached: true,
     env: process.env,
     stdio: ["ignore", log, log],
