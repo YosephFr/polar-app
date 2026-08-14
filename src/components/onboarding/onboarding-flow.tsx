@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, ShieldCheck } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 
@@ -82,15 +82,18 @@ export function OnboardingFlow({ adding = false }: { adding?: boolean }) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-xl pb-12">
-      <div className="mb-8 flex items-center justify-center gap-2" aria-label={`Paso ${step + 1} de 3`}>
+    <main className="mx-auto w-full min-w-0 max-w-xl pb-12">
+      <div className="mb-5 grid grid-cols-3 gap-2" aria-label={`Paso ${step + 1} de 3`}>
         {steps.map((label, index) => (
-          <span key={label} className={`h-1.5 rounded-full transition-all ${index === step ? "w-9 bg-polar" : index < step ? "w-5 bg-polar/45" : "w-5 bg-border"}`} />
+          <div key={label} className="min-w-0">
+            <span className={`block h-2 rounded-full transition-colors duration-300 ${index === step ? "bg-polar" : index < step ? "bg-polar/40" : "bg-border"}`} />
+            <span className={`mt-1.5 hidden truncate text-center text-xs font-extrabold min-[380px]:block ${index === step ? "text-polar-dark" : "text-ink-faint"}`}>{label}</span>
+          </div>
         ))}
       </div>
-      <form onSubmit={submit} noValidate>
-        <section className={step === 0 ? "block" : "hidden"} aria-hidden={step !== 0}>
-            <h1 className="text-3xl font-extrabold tracking-[-0.03em]">{adding ? "Añadir perfil" : "Crear perfil"}</h1>
+      <form onSubmit={submit} noValidate className="min-w-0 rounded-[1.75rem] border border-polar/10 bg-panel p-5 shadow-card sm:p-8">
+        <section className={step === 0 ? "page-enter block" : "hidden"} aria-hidden={step !== 0}>
+            <h1 className="text-3xl font-black tracking-[-0.035em]">{adding ? "Añadir perfil" : "Crear perfil"}</h1>
             <div className="mt-8 flex flex-col gap-5">
               <Field label="Nombre" htmlFor="patient-name"><Input id="patient-name" name="name" required autoFocus /></Field>
               <Field label="Fecha de nacimiento opcional" htmlFor="patient-birth"><Input id="patient-birth" name="birthDate" type="date" /></Field>
@@ -105,38 +108,38 @@ export function OnboardingFlow({ adding = false }: { adding?: boolean }) {
             </div>
         </section>
 
-        <div className={step === 1 ? "block" : "hidden"} aria-hidden={step !== 1}>
-          <h1 className="text-3xl font-extrabold tracking-[-0.03em]">Insulinas que ya usa</h1>
-          <p className="mt-2 text-base leading-6 text-ink-soft">Ingrese las insulinas indicadas en el plan actual.</p>
+        <div className={step === 1 ? "page-enter block" : "hidden"} aria-hidden={step !== 1}>
+          <h1 className="text-3xl font-black tracking-[-0.035em]">Insulinas actuales</h1>
+          <p className="mt-2 text-base font-semibold leading-6 text-ink-soft">Registre las insulinas indicadas en el plan.</p>
           <div className="mt-8 flex flex-col gap-5">
             <Field label="Insulina basal" htmlFor="basal-name"><Input id="basal-name" name="basalInsulinName" placeholder="Ej. Toujeo" /></Field>
             <Field label="Dosis basal habitual" htmlFor="basal-dose"><Input id="basal-dose" name="basalDose" type="number" inputMode="decimal" min="0" step="0.5" placeholder="Unidades" /></Field>
             <Field label="Insulina rápida" htmlFor="rapid-name"><Input id="rapid-name" name="rapidInsulinName" placeholder="Nombre de la insulina" /></Field>
-            <div className="rounded-lg bg-polar-soft p-4 text-sm leading-5 text-polar-dark">
-              <ShieldCheck className="mb-2" size={22} />
+            <div className="rounded-[1.25rem] bg-polar-soft p-4 text-sm font-bold leading-5 text-polar-dark">
+              <ShieldCheckIcon className="mb-2" size={23} weight="duotone" />
               Cada modificación se guarda como una nueva versión del plan.
             </div>
           </div>
         </div>
 
-        <div className={step === 2 ? "block" : "hidden"} aria-hidden={step !== 2}>
-          <h1 className="text-3xl font-extrabold tracking-[-0.03em]">Parámetros del cálculo</h1>
-          <p className="mt-2 text-base leading-6 text-ink-soft">Ingrese los valores proporcionados por el equipo de diabetes.</p>
-          <div className="mt-8 grid grid-cols-2 gap-4">
-            <Field label="Factor de corrección" htmlFor="correction-factor" className="col-span-2"><Input id="correction-factor" name="correctionFactor" type="number" inputMode="decimal" min="1" step="0.1" required placeholder="Ej. 30" /></Field>
+        <div className={step === 2 ? "page-enter block" : "hidden"} aria-hidden={step !== 2}>
+          <h1 className="text-3xl font-black tracking-[-0.035em]">Parámetros del cálculo</h1>
+          <p className="mt-2 text-base font-semibold leading-6 text-ink-soft">Use los valores proporcionados por el equipo de diabetes.</p>
+          <div className="mt-8 grid min-w-0 grid-cols-1 gap-4 min-[440px]:grid-cols-2">
+            <Field label="Factor de corrección" htmlFor="correction-factor" className="min-[440px]:col-span-2"><Input id="correction-factor" name="correctionFactor" type="number" inputMode="decimal" min="1" step="0.1" required placeholder="Ej. 30" /></Field>
             <Field label="Objetivo antes de comer" htmlFor="premeal-target"><Input id="premeal-target" name="premealTarget" type="number" inputMode="numeric" min="50" max="300" defaultValue="100" required /></Field>
             <Field label="Objetivo de corrección" htmlFor="correction-target"><Input id="correction-target" name="correctionTarget" type="number" inputMode="numeric" min="50" max="300" defaultValue="150" required /></Field>
             <Field label="Umbral de glucosa baja" htmlFor="low-threshold"><Input id="low-threshold" name="lowThreshold" type="number" inputMode="numeric" min="40" max="100" defaultValue="70" required /></Field>
             <Field label="Redondear a" htmlFor="rounding"><Select id="rounding" name="roundingIncrement" defaultValue="1"><option value="1">1 unidad</option><option value="0.5">0,5 unidades</option></Select></Field>
-            <Field label="Máximo por bolo (opcional)" htmlFor="max-bolus" className="col-span-2"><Input id="max-bolus" name="maxBolus" type="number" inputMode="decimal" min="0.5" step="0.5" /></Field>
+            <Field label="Máximo por bolo (opcional)" htmlFor="max-bolus" className="min-[440px]:col-span-2"><Input id="max-bolus" name="maxBolus" type="number" inputMode="decimal" min="0.5" step="0.5" /></Field>
           </div>
-          <h2 className="mt-8 text-lg font-extrabold text-polar-dark">Ratios por comida</h2>
-          <div className="mt-4 grid grid-cols-2 gap-4">
+          <h2 className="mt-8 text-lg font-black text-polar-dark">Ratios por comida</h2>
+          <div className="mt-4 grid min-w-0 grid-cols-1 gap-4 min-[440px]:grid-cols-2">
             <Field label="Desayuno" htmlFor="ratio-breakfast"><Input id="ratio-breakfast" name="ratioBreakfast" type="number" min="0" step="0.1" required /></Field>
             <Field label="Colación" htmlFor="ratio-morning"><Input id="ratio-morning" name="ratioMorningSnack" type="number" min="0" step="0.1" required /></Field>
             <Field label="Almuerzo" htmlFor="ratio-lunch"><Input id="ratio-lunch" name="ratioLunch" type="number" min="0" step="0.1" required /></Field>
             <Field label="Once / merienda" htmlFor="ratio-afternoon"><Input id="ratio-afternoon" name="ratioAfternoonSnack" type="number" min="0" step="0.1" required /></Field>
-            <Field label="Cena" htmlFor="ratio-dinner" className="col-span-2"><Input id="ratio-dinner" name="ratioDinner" type="number" min="0" step="0.1" required /></Field>
+            <Field label="Cena" htmlFor="ratio-dinner" className="min-[440px]:col-span-2"><Input id="ratio-dinner" name="ratioDinner" type="number" min="0" step="0.1" required /></Field>
           </div>
           <Field label="Plan para glucosa baja" htmlFor="hypo-note" className="mt-6" hint="Instrucciones acordadas con el equipo de diabetes.">
             <Textarea id="hypo-note" name="hypoTreatmentNote" placeholder="Qué hacer y cuándo volver a medir" />
@@ -144,10 +147,10 @@ export function OnboardingFlow({ adding = false }: { adding?: boolean }) {
         </div>
 
         {error ? <p className="mt-5 rounded-md bg-danger-soft px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</p> : null}
-        <footer className="mt-8 flex gap-3">
-          {step > 0 ? <Button type="button" variant="secondary" icon={<ArrowLeft size={19} />} onClick={() => setStep((current) => current - 1)}>Volver</Button> : null}
-          <Button type="submit" loading={loading} icon={step === 2 ? <Check size={19} /> : <ArrowRight size={19} />} className="flex-1">
-            {step === 2 ? "Crear perfil" : "Continuar"}
+        <footer className="mt-8 flex min-w-0 gap-3">
+          {step > 0 ? <Button type="button" variant="secondary" icon={<ArrowLeftIcon size={20} weight="bold" />} onClick={() => setStep((current) => current - 1)}>Volver</Button> : null}
+          <Button type="submit" loading={loading} icon={step === 2 ? <CheckIcon size={20} weight="bold" /> : <ArrowRightIcon size={20} weight="bold" />} className="min-w-0 flex-1">
+            {step === 2 ? (adding ? "Añadir perfil" : "Crear perfil") : "Continuar"}
           </Button>
         </footer>
       </form>

@@ -2,9 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calculator, ChevronDown, CircleSlashed, Goal, SlidersHorizontal, Utensils } from "lucide-react";
+import {
+  BowlFoodIcon,
+  CalculatorIcon,
+  CaretDownIcon,
+  ProhibitIcon,
+  SlidersHorizontalIcon,
+  TargetIcon,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { calculateDose, mealLabels, mealTypes, type DoseResult } from "@/lib/domain/calculator";
 import type { BolusRecord, PatientCarePlan } from "@/lib/db/data";
 import { usePolar } from "@/components/app/app-context";
@@ -16,11 +24,11 @@ function formatDose(value: number | null) {
 
 function RecentRecord({ record }: { record: BolusRecord | null }) {
   if (!record) {
-    return <div className="rounded-lg bg-surface px-5 py-6 text-sm font-semibold text-ink-soft">No hay registros para este perfil.</div>;
+    return <div className="rounded-[1.5rem] border border-border bg-panel px-5 py-7 text-sm font-bold text-ink-soft shadow-card">No hay registros para este perfil.</div>;
   }
   return (
-    <article className="grid grid-cols-[auto_1fr_auto] items-center gap-4 rounded-lg bg-surface px-4 py-4 sm:px-5">
-      <span className="flex size-11 items-center justify-center rounded-full bg-polar text-white"><Utensils size={21} /></span>
+    <article className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-[1.5rem] border border-polar/10 bg-panel px-4 py-4 shadow-card sm:gap-4 sm:px-5">
+      <span className="flex size-12 items-center justify-center rounded-[1rem] bg-polar text-on-accent"><BowlFoodIcon size={23} weight="fill" /></span>
       <div className="min-w-0">
         <p className="truncate font-extrabold text-ink">{mealLabels[record.mealType]}</p>
         <p className="mt-0.5 truncate text-xs font-semibold text-ink-soft">{record.actorName} · {new Date(record.occurredAt).toLocaleString("es-419", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
@@ -103,57 +111,57 @@ export function DoseCalculator({ carePlan, latestRecord }: { carePlan: PatientCa
 
   return (
     <>
-      <form onSubmit={(event) => { event.preventDefault(); calculate(); }}>
+      <form onSubmit={(event) => { event.preventDefault(); calculate(); }} className="min-w-0">
+        <h1 className="sr-only">Calcular dosis</h1>
         <Field label="Comida" htmlFor="meal-type">
-          <div className="relative">
-            <Utensils size={23} className="pointer-events-none absolute left-5 top-1/2 z-10 -translate-y-1/2 text-polar" />
-            <Select id="meal-type" value={mealType} onValueChange={(value) => { setMealType(value as typeof mealType); setResult(null); }} className="h-[4.25rem] rounded-lg border-border-strong pl-14 text-lg font-extrabold">
+          <div className="relative min-w-0">
+            <Select id="meal-type" value={mealType} onValueChange={(value) => { setMealType(value as typeof mealType); setResult(null); }} leading={<BowlFoodIcon size={25} weight="duotone" />} className="min-h-[4.5rem] rounded-[1.5rem] border-polar/25 px-5 text-lg font-black shadow-card">
               {mealTypes.map((type) => <option key={type} value={type}>{mealLabels[type]}</option>)}
             </Select>
           </div>
         </Field>
 
-        <div className="mt-7 grid grid-cols-2 gap-4">
+        <div className="mt-6 grid min-w-0 grid-cols-1 gap-4 min-[360px]:grid-cols-2">
           <Field label="Glucosa" htmlFor="glucose">
-            <div className="relative"><Input id="glucose" type="number" inputMode="numeric" min="20" max="600" required placeholder="110" value={glucose} onChange={(event) => { setGlucose(event.target.value); setResult(null); }} className="h-[4.75rem] rounded-lg border-2 border-polar pr-20 text-[2rem] font-extrabold tnum placeholder:text-ink-faint" /><span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-ink-soft">mg/dL</span></div>
+            <div className="relative min-w-0"><Input id="glucose" type="number" inputMode="numeric" min="20" max="600" required placeholder="110" value={glucose} onChange={(event) => { setGlucose(event.target.value); setResult(null); }} className="min-h-[5.25rem] rounded-[1.5rem] border-2 border-polar bg-panel pr-[4.4rem] text-[clamp(1.7rem,8vw,2.35rem)] font-black tnum placeholder:text-ink-faint" /><span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-ink-soft min-[420px]:text-sm">mg/dL</span></div>
           </Field>
           <Field label="Carbohidratos" htmlFor="carbs">
-            <div className="relative"><Input id="carbs" type="number" inputMode="decimal" min="0" max="300" step="0.1" required={mealType !== "correction"} disabled={mealType === "correction"} placeholder="30" value={carbs} onChange={(event) => { setCarbs(event.target.value); setResult(null); }} className="h-[4.75rem] rounded-lg border-2 border-polar pr-10 text-[2rem] font-extrabold tnum placeholder:text-ink-faint" /><span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-ink-soft">g</span></div>
+            <div className="relative min-w-0"><Input id="carbs" type="number" inputMode="decimal" min="0" max="300" step="0.1" required={mealType !== "correction"} disabled={mealType === "correction"} placeholder="30" value={carbs} onChange={(event) => { setCarbs(event.target.value); setResult(null); }} className="min-h-[5.25rem] rounded-[1.5rem] border-2 border-polar bg-panel pr-10 text-[clamp(1.7rem,8vw,2.35rem)] font-black tnum placeholder:text-ink-faint" /><span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-ink-soft">g</span></div>
           </Field>
         </div>
 
-        <div className="mt-5 flex items-center gap-4 rounded-lg bg-surface px-5 py-4 text-sm font-bold text-ink">
-          <Goal size={23} className="shrink-0 text-polar" />
+        <div className="mt-5 flex min-h-16 items-center gap-4 rounded-[1.25rem] bg-surface px-5 py-4 text-sm font-extrabold text-ink">
+          <TargetIcon size={24} weight="duotone" className="shrink-0 text-polar" />
           <span>Objetivo: {target} mg/dL</span>
         </div>
 
-        <details className="group mt-4 rounded-lg bg-surface">
+        <details className="group mt-4 rounded-[1.25rem] bg-surface">
           <summary className="flex min-h-16 cursor-pointer list-none items-center gap-4 px-5 font-bold text-ink [&::-webkit-details-marker]:hidden">
-            <SlidersHorizontal size={22} className="text-polar" />
+            <SlidersHorizontalIcon size={23} weight="bold" className="text-polar" />
             <span>Ajustes opcionales</span>
-            <ChevronDown size={20} className="ml-auto transition-transform group-open:rotate-180" />
+            <CaretDownIcon size={20} weight="bold" className="ml-auto transition-transform group-open:rotate-180" />
           </summary>
-          <div className="grid grid-cols-2 gap-4 border-t border-border px-5 pb-5 pt-4">
+          <div className="grid min-w-0 grid-cols-1 gap-4 border-t border-border px-5 pb-5 pt-4 min-[420px]:grid-cols-2">
             <Field label="Insulina activa" htmlFor="active-insulin"><Input id="active-insulin" type="number" inputMode="decimal" min="0" max="100" step="0.1" value={activeInsulin} onChange={(event) => { setActiveInsulin(event.target.value); setResult(null); }} /></Field>
             <Field label="Reducir por actividad" htmlFor="activity"><Input id="activity" type="number" inputMode="numeric" min="0" max="100" value={activityAdjustmentPercent} onChange={(event) => { setActivityAdjustmentPercent(event.target.value); setResult(null); }} /></Field>
             <Field label="Nota" htmlFor="record-notes" className="col-span-2"><Textarea id="record-notes" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Opcional" /></Field>
           </div>
         </details>
 
-        <Button type="button" onClick={calculate} icon={<Calculator size={23} />} className="mt-5 h-[3.75rem] w-full rounded-lg text-lg">Calcular dosis</Button>
+        <Button type="button" onClick={calculate} icon={<CalculatorIcon size={24} weight="bold" />} className="mt-5 min-h-16 w-full rounded-[1.5rem] text-lg">Calcular dosis</Button>
       </form>
 
       {result ? (
-        <section className={`mt-5 rounded-lg border p-5 ${result.status === "blocked_low" ? "border-danger/25 bg-danger-soft" : "border-polar/20 bg-polar-soft"}`} aria-live="polite">
+        <section className={`page-enter mt-5 rounded-[1.5rem] border p-5 shadow-card ${result.status === "blocked_low" ? "border-danger/25 bg-danger-soft" : "border-polar/20 bg-polar-soft"}`} aria-live="polite">
           {result.status === "blocked_low" ? (
             <>
-              <div className="flex items-start gap-3"><CircleSlashed size={25} className="mt-0.5 shrink-0 text-danger" /><div><h2 className="font-extrabold text-danger">No calcular insulina ahora</h2><p className="mt-1 text-sm leading-5 text-ink">La glucosa está por debajo del umbral de {carePlan.lowThreshold} mg/dL.</p></div></div>
-              {carePlan.hypoTreatmentNote ? <p className="mt-4 rounded-md bg-white/70 px-4 py-3 text-sm font-semibold leading-5 text-ink">{carePlan.hypoTreatmentNote}</p> : null}
+              <div className="flex items-start gap-3"><ProhibitIcon size={26} weight="fill" className="mt-0.5 shrink-0 text-danger" /><div><h2 className="font-black text-danger">No calcular insulina ahora</h2><p className="mt-1 text-sm font-semibold leading-5 text-ink">La glucosa está por debajo del umbral de {carePlan.lowThreshold} mg/dL.</p></div></div>
+              {carePlan.hypoTreatmentNote ? <p className="mt-4 rounded-[1rem] bg-panel px-4 py-3 text-sm font-bold leading-5 text-ink">{carePlan.hypoTreatmentNote}</p> : null}
               <Button type="button" variant="secondary" loading={saving} onClick={save} className="mt-4 w-full">Registrar glucosa baja</Button>
             </>
           ) : (
             <>
-              <div className="flex items-end justify-between gap-3"><div><p className="text-sm font-bold text-polar-dark">Dosis calculada</p><p className="tnum mt-1 text-4xl font-extrabold tracking-[-0.04em]">{formatDose(result.recommendedDose)}</p></div>{result.limitedByMaximum ? <span className="text-right text-xs font-bold text-warning">Limitada al máximo del plan</span> : null}</div>
+              <div className="flex items-end justify-between gap-3"><div><p className="text-sm font-extrabold text-polar-dark">Dosis calculada</p><p className="tnum mt-1 text-4xl font-black tracking-[-0.04em]">{formatDose(result.recommendedDose)}</p></div>{result.limitedByMaximum ? <span className="text-right text-xs font-extrabold text-warning">Limitada al máximo del plan</span> : null}</div>
               <Field label="Dosis realmente administrada" htmlFor="administered-dose" className="mt-5"><Input id="administered-dose" type="number" inputMode="decimal" min="0" max="200" step={carePlan.roundingIncrement} value={administeredDose} onChange={(event) => setAdministeredDose(event.target.value)} /></Field>
               <p className="mt-3 text-xs font-semibold leading-5 text-ink-soft">Confirme la dosis administrada antes de guardar.</p>
               <Button type="button" loading={saving} onClick={save} className="mt-4 w-full">Guardar registro</Button>
@@ -164,7 +172,7 @@ export function DoseCalculator({ carePlan, latestRecord }: { carePlan: PatientCa
       {message ? <p className="mt-4 rounded-md bg-surface px-4 py-3 text-sm font-bold text-ink" role="status">{message}</p> : null}
 
       <section className="mt-10 border-t border-border pt-7">
-        <h2 className="mb-4 text-lg font-extrabold text-polar-dark">Último registro</h2>
+        <SectionHeading title="Último registro" />
         <RecentRecord record={latestRecord} />
       </section>
     </>

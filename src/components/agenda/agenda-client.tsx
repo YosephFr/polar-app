@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CalendarPlus, Check, TimerReset } from "lucide-react";
+import { BellIcon, CalendarPlusIcon, CheckIcon, TimerIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
+import { PageHeader } from "@/components/ui/page-header";
 import type { Appointment, PatientTimer } from "@/lib/db/data";
 import { usePolar } from "@/components/app/app-context";
 
@@ -41,7 +42,10 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
     }
   }, [now, timers]);
 
-  const sortedAppointments = useMemo(() => [...appointments].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)), [appointments]);
+  const sortedAppointments = useMemo(
+    () => [...appointments].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)),
+    [appointments],
+  );
 
   async function createTimer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,12 +54,27 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
     setBusy(true);
     setMessage("");
     try {
-      const response = await fetch("/api/timers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patientId: patient.id, label: String(form.get("label")), dueAt: new Date(Date.now() + minutes * 60000).toISOString() }) });
+      const response = await fetch("/api/timers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: patient.id,
+          label: String(form.get("label")),
+          dueAt: new Date(Date.now() + minutes * 60000).toISOString(),
+        }),
+      });
       const body = (await response.json()) as { error?: string };
       if (!response.ok) setMessage(body.error || "No se pudo iniciar el temporizador");
-      else { event.currentTarget.reset(); setMessage("Temporizador iniciado"); router.refresh(); }
-    } catch { setMessage("Revise la conexión e inténtelo de nuevo"); }
-    finally { setBusy(false); }
+      else {
+        event.currentTarget.reset();
+        setMessage("Temporizador iniciado");
+        router.refresh();
+      }
+    } catch {
+      setMessage("Revise la conexión e inténtelo de nuevo");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function createAppointment(event: FormEvent<HTMLFormElement>) {
@@ -65,37 +84,129 @@ export function AgendaClient({ appointments, timers, initialNow }: { appointment
     setBusy(true);
     setMessage("");
     try {
-      const response = await fetch("/api/appointments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patientId: patient.id, title: String(form.get("title")), scheduledAt: new Date(scheduled).toISOString(), notes: String(form.get("notes") || "").trim() || null }) });
+      const response = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: patient.id,
+          title: String(form.get("title")),
+          scheduledAt: new Date(scheduled).toISOString(),
+          notes: String(form.get("notes") || "").trim() || null,
+        }),
+      });
       const body = (await response.json()) as { error?: string };
       if (!response.ok) setMessage(body.error || "No se pudo guardar la cita");
-      else { event.currentTarget.reset(); setMessage("Cita guardada"); router.refresh(); }
-    } catch { setMessage("Revise la fecha y la conexión"); }
-    finally { setBusy(false); }
+      else {
+        event.currentTarget.reset();
+        setMessage("Cita guardada");
+        router.refresh();
+      }
+    } catch {
+      setMessage("Revise la fecha y la conexión");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function completeTimer(id: string) {
-    await fetch(`/api/timers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "done" }) });
+    await fetch(`/api/timers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "done" }),
+    });
     router.refresh();
   }
 
   async function requestNotifications() {
-    if (!("Notification" in window)) { setMessage("Este navegador no admite notificaciones"); return; }
+    if (!("Notification" in window)) {
+      setMessage("Este navegador no admite notificaciones");
+      return;
+    }
     const permission = await Notification.requestPermission();
     setMessage(permission === "granted" ? "Notificaciones activadas" : "Las notificaciones no están habilitadas");
   }
 
   return (
-    <div>
-      <div className="flex items-start justify-between gap-4"><div><h1 className="text-3xl font-extrabold tracking-[-0.04em]">Agenda</h1><p className="mt-2 text-sm font-semibold text-ink-soft">Temporizadores y próximas citas de {patient.name}.</p></div><button type="button" onClick={requestNotifications} aria-label="Activar notificaciones" className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-polar"><Bell size={21} /></button></div>
+    <div className="min-w-0">
+      <PageHeader
+        title="Agenda"
+        subtitle={patient.name}
+        action={(
+          <button
+            type="button"
+            onClick={requestNotifications}
+            aria-label="Activar notificaciones"
+            className="flex size-12 shrink-0 items-center justify-center rounded-[1rem] border border-polar/15 bg-polar-soft text-polar transition-transform active:scale-95"
+          >
+            <BellIcon size={23} weight="duotone" />
+          </button>
+        )}
+      />
 
-      {timers.length > 0 ? <section className="mt-7"><h2 className="text-lg font-extrabold text-polar-dark">Temporizadores activos</h2><div className="mt-3 flex flex-col gap-3">{timers.map((timer) => <article key={timer.id} className="flex items-center gap-4 rounded-lg bg-polar-soft px-4 py-4"><TimerReset className="shrink-0 text-polar" size={24} /><div className="min-w-0 flex-1"><h3 className="truncate font-extrabold">{timer.label}</h3><p className="tnum mt-0.5 text-sm font-bold text-polar-dark">{remainingLabel(timer.dueAt, now)}</p></div><button type="button" onClick={() => completeTimer(timer.id)} aria-label="Marcar como hecho" className="flex size-10 items-center justify-center rounded-full bg-white text-polar"><Check size={20} /></button></article>)}</div></section> : null}
+      {timers.length > 0 ? (
+        <section className="mt-7">
+          <h2 className="text-lg font-black text-polar-dark">Temporizadores activos</h2>
+          <div className="mt-3 flex flex-col gap-3">
+            {timers.map((timer) => (
+              <article key={timer.id} className="flex min-w-0 items-center gap-3 rounded-[1.35rem] bg-polar px-4 py-4 text-on-accent shadow-action sm:gap-4">
+                <TimerIcon className="shrink-0" size={25} weight="duotone" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate font-black">{timer.label}</h3>
+                  <p className="tnum mt-0.5 text-sm font-extrabold text-on-accent/80">{remainingLabel(timer.dueAt, now)}</p>
+                </div>
+                <button type="button" onClick={() => completeTimer(timer.id)} aria-label="Marcar como hecho" className="flex size-11 shrink-0 items-center justify-center rounded-[0.95rem] bg-panel text-polar transition-transform active:scale-95">
+                  <CheckIcon size={21} weight="bold" />
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-      <section className="mt-8"><h2 className="text-lg font-extrabold text-polar-dark">Nuevo temporizador</h2><form onSubmit={createTimer} className="mt-4 grid grid-cols-[1fr_7rem] gap-3"><Field label="Recordatorio" htmlFor="timer-label"><Input id="timer-label" name="label" required placeholder="Volver a medir" /></Field><Field label="En minutos" htmlFor="timer-minutes"><Input id="timer-minutes" name="minutes" type="number" inputMode="numeric" min="1" max="1440" defaultValue="15" required /></Field><Button type="submit" loading={busy} icon={<TimerReset size={19} />} className="col-span-2">Iniciar</Button></form></section>
-
-      <section className="mt-9 border-t border-border pt-7"><h2 className="text-lg font-extrabold text-polar-dark">Próximas citas</h2>{sortedAppointments.length ? <div className="mt-3 flex flex-col gap-2">{sortedAppointments.map((item) => <article key={item.id} className="border-b border-border py-3"><p className="font-extrabold">{item.title}</p><p className="mt-1 text-sm font-bold text-polar">{new Date(item.scheduledAt).toLocaleString("es-419", { dateStyle: "long", timeStyle: "short" })}</p>{item.notes ? <p className="mt-1 text-sm text-ink-soft">{item.notes}</p> : null}</article>)}</div> : <p className="mt-3 rounded-lg bg-surface px-4 py-5 text-sm font-semibold text-ink-soft">No hay citas próximas.</p>}
-        <form onSubmit={createAppointment} className="mt-6 flex flex-col gap-4"><Field label="Título" htmlFor="appointment-title"><Input id="appointment-title" name="title" required placeholder="Control con el equipo" /></Field><Field label="Fecha y hora" htmlFor="appointment-date"><Input id="appointment-date" name="scheduledAt" type="datetime-local" required /></Field><Field label="Nota opcional" htmlFor="appointment-notes"><Textarea id="appointment-notes" name="notes" /></Field><Button type="submit" loading={busy} icon={<CalendarPlus size={19} />}>Guardar cita</Button></form>
+      <section className="mt-7 rounded-[1.5rem] border border-polar/10 bg-panel p-4 shadow-card sm:p-6">
+        <h2 className="text-lg font-black text-polar-dark">Nuevo temporizador</h2>
+        <form onSubmit={createTimer} className="mt-4 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6.5rem,7rem)] gap-3 max-[350px]:grid-cols-1">
+          <Field label="Recordatorio" htmlFor="timer-label">
+            <Input id="timer-label" name="label" required placeholder="Volver a medir" />
+          </Field>
+          <Field label="En minutos" htmlFor="timer-minutes">
+            <Input id="timer-minutes" name="minutes" type="number" inputMode="numeric" min="1" max="1440" defaultValue="15" required />
+          </Field>
+          <Button type="submit" loading={busy} icon={<TimerIcon size={20} weight="bold" />} className="col-span-full min-h-14">Iniciar</Button>
+        </form>
       </section>
-      {message ? <p className="mt-5 rounded-md bg-surface px-4 py-3 text-sm font-bold" role="status">{message}</p> : null}
+
+      <section className="mt-7 rounded-[1.5rem] border border-polar/10 bg-panel p-4 shadow-card sm:p-6">
+        <h2 className="text-lg font-black text-polar-dark">Próximas citas</h2>
+        {sortedAppointments.length ? (
+          <div className="mt-3 divide-y divide-border">
+            {sortedAppointments.map((item) => (
+              <article key={item.id} className="min-w-0 py-4">
+                <p className="truncate font-black">{item.title}</p>
+                <p className="mt-1 text-sm font-extrabold text-polar">{new Date(item.scheduledAt).toLocaleString("es-419", { dateStyle: "long", timeStyle: "short" })}</p>
+                {item.notes ? <p className="mt-1 text-sm font-semibold leading-5 text-ink-soft">{item.notes}</p> : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 rounded-[1.15rem] bg-surface px-4 py-5 text-sm font-bold text-ink-soft">No hay citas próximas.</p>
+        )}
+
+        <form onSubmit={createAppointment} className="mt-6 flex min-w-0 flex-col gap-4">
+          <Field label="Título" htmlFor="appointment-title">
+            <Input id="appointment-title" name="title" required placeholder="Control con el equipo" />
+          </Field>
+          <Field label="Fecha y hora" htmlFor="appointment-date">
+            <Input id="appointment-date" name="scheduledAt" type="datetime-local" required />
+          </Field>
+          <Field label="Nota opcional" htmlFor="appointment-notes">
+            <Textarea id="appointment-notes" name="notes" />
+          </Field>
+          <Button type="submit" loading={busy} icon={<CalendarPlusIcon size={21} weight="bold" />} className="min-h-14">Guardar cita</Button>
+        </form>
+      </section>
+
+      {message ? <p className="page-enter mt-5 rounded-[1.15rem] bg-surface px-4 py-3 text-sm font-extrabold" role="status">{message}</p> : null}
     </div>
   );
 }
