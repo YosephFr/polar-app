@@ -9,6 +9,15 @@ function applicationServerKey(value: string) {
 
 export type PushCapability = "unsupported" | "unconfigured" | "blocked" | "available" | "active";
 
+function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string) {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), milliseconds);
+    }),
+  ]);
+}
+
 async function pushConfig() {
   const response = await fetch("/api/push/config", { cache: "no-store" });
   if (!response.ok) return { enabled: false, publicKey: "" };
@@ -35,12 +44,20 @@ export async function enablePush() {
   }
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("El navegador no concedió permiso para enviar notificaciones.");
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await withTimeout(
+    navigator.serviceWorker.ready,
+    10_000,
+    "El servicio de notificaciones no respondió. Recargue Polar e inténtelo de nuevo.",
+  );
   const current = await registration.pushManager.getSubscription();
-  const subscription = current || await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: applicationServerKey(config.publicKey),
-  });
+  const subscription = current || await withTimeout(
+    registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: applicationServerKey(config.publicKey),
+    }),
+    15_000,
+    "La activación tardó demasiado. Compruebe la conexión e inténtelo de nuevo.",
+  );
   const response = await fetch("/api/push/subscriptions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

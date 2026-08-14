@@ -8,6 +8,7 @@ import {
   BellRingingIcon,
   CalendarBlankIcon,
   CheckIcon,
+  CircleNotchIcon,
   CloudSlashIcon,
   GearSixIcon,
   PulseIcon,
@@ -52,6 +53,7 @@ export function NotificationBell() {
     pendingSync,
     pushCapability,
     pushFeedback,
+    pushBusy,
     updateReady,
     markRead,
     savePreferences,
@@ -220,11 +222,11 @@ export function NotificationBell() {
               <div className="border-t border-border px-4 pb-4 pt-3">
                 <p className="text-xs font-bold leading-4 text-ink-soft">{pushLabels[pushCapability]}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {pushCapability === "available" ? <button type="button" onClick={() => void activatePush()} className="min-h-10 rounded-[0.8rem] bg-polar px-3 text-xs font-black text-white">Activar dispositivo</button> : null}
+                  {pushCapability === "available" ? <button type="button" disabled={pushBusy} aria-busy={pushBusy || undefined} onClick={() => void activatePush()} className="inline-flex min-h-10 items-center gap-2 rounded-[0.8rem] bg-polar px-3 text-xs font-black text-white disabled:opacity-65">{pushBusy ? <CircleNotchIcon size={16} weight="bold" className="animate-spin" /> : null}{pushBusy ? "Activando" : "Activar dispositivo"}</button> : null}
                   {pushCapability === "active" ? (
                     <>
-                      <button type="button" onClick={() => void testPush()} className="min-h-10 rounded-[0.8rem] bg-polar px-3 text-xs font-black text-white">Probar aviso</button>
-                      <button type="button" onClick={() => void deactivatePush()} className="min-h-10 px-2 text-xs font-black text-ink-soft">Desactivar</button>
+                      <button type="button" disabled={pushBusy} aria-busy={pushBusy || undefined} onClick={() => void testPush()} className="inline-flex min-h-10 items-center gap-2 rounded-[0.8rem] bg-polar px-3 text-xs font-black text-white disabled:opacity-65">{pushBusy ? <CircleNotchIcon size={16} weight="bold" className="animate-spin" /> : null}{pushBusy ? "Enviando" : "Probar aviso"}</button>
+                      <button type="button" disabled={pushBusy} onClick={() => void deactivatePush()} className="min-h-10 px-2 text-xs font-black text-ink-soft disabled:opacity-50">Desactivar</button>
                     </>
                   ) : null}
                 </div>

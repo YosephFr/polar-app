@@ -24,6 +24,7 @@ type NotificationCenterValue = {
   pendingSync: number;
   pushCapability: PushCapability;
   pushFeedback: string;
+  pushBusy: boolean;
   updateReady: boolean;
   refresh: () => Promise<void>;
   markRead: (ids?: string[]) => Promise<void>;
@@ -52,6 +53,7 @@ export function NotificationCenterProvider({
   const [pendingSync, setPendingSync] = useState(0);
   const [pushCapability, setPushCapability] = useState<PushCapability>("unsupported");
   const [pushFeedback, setPushFeedback] = useState("");
+  const [pushBusy, setPushBusy] = useState(false);
   const refreshingRef = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -164,6 +166,8 @@ export function NotificationCenterProvider({
   }, [patient.id, snapshot.preferences]);
 
   const activatePush = useCallback(async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
     setPushFeedback("");
     try {
       await enablePush();
@@ -172,10 +176,14 @@ export function NotificationCenterProvider({
     } catch (error) {
       setPushCapability(await readPushCapability().catch((): PushCapability => "unsupported"));
       setPushFeedback(error instanceof Error ? error.message : "No se pudieron activar las notificaciones.");
+    } finally {
+      setPushBusy(false);
     }
-  }, []);
+  }, [pushBusy]);
 
   const deactivatePush = useCallback(async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
     setPushFeedback("");
     try {
       await disablePush();
@@ -183,20 +191,30 @@ export function NotificationCenterProvider({
       setPushFeedback("Las notificaciones se desactivaron en este dispositivo.");
     } catch {
       setPushFeedback("No se pudieron desactivar las notificaciones.");
+    } finally {
+      setPushBusy(false);
     }
-  }, []);
+  }, [pushBusy]);
 
   const testPush = useCallback(async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
     setPushFeedback("");
-    const response = await fetch("/api/push/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patientId: patient.id }),
-    });
-    const body = await response.json().catch(() => ({})) as { error?: string };
-    setPushFeedback(response.ok ? "Notificación de prueba enviada." : body.error || "No se pudo enviar la prueba.");
-    if (response.ok) void refresh();
-  }, [patient.id, refresh]);
+    try {
+      const response = await fetch("/api/push/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId: patient.id }),
+      });
+      const body = await response.json().catch(() => ({})) as { error?: string };
+      setPushFeedback(response.ok ? "Notificación de prueba enviada." : body.error || "No se pudo enviar la prueba.");
+      if (response.ok) void refresh();
+    } catch {
+      setPushFeedback("No se pudo enviar la prueba.");
+    } finally {
+      setPushBusy(false);
+    }
+  }, [patient.id, pushBusy, refresh]);
 
   const value = useMemo<NotificationCenterValue>(() => ({
     snapshot,
@@ -206,6 +224,7 @@ export function NotificationCenterProvider({
     pendingSync,
     pushCapability,
     pushFeedback,
+    pushBusy,
     updateReady,
     refresh,
     markRead,
@@ -223,6 +242,7 @@ export function NotificationCenterProvider({
     pendingSync,
     pushCapability,
     pushFeedback,
+    pushBusy,
     updateReady,
     refresh,
     markRead,
