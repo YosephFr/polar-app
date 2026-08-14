@@ -248,13 +248,16 @@ export type Appointment = {
   title: string;
   scheduledAt: string;
   notes: string | null;
+  reminderMinutes: number;
 };
 
 export type PatientTimer = {
   id: string;
   label: string;
   dueAt: string;
-  status: string;
+  status: "active" | "paused" | "due";
+  kind: string;
+  remainingSeconds: number | null;
 };
 
 export async function listAgenda(userId: string, patientId: string) {
@@ -268,17 +271,26 @@ export async function listAgenda(userId: string, patientId: string) {
       title: string;
       scheduled_at: Date;
       notes: string | null;
+      reminder_minutes: number;
     })[]>(
-      "SELECT id, title, scheduled_at, notes FROM appointments WHERE patient_id = ? AND scheduled_at >= UTC_TIMESTAMP(3) ORDER BY scheduled_at ASC LIMIT 50",
+      "SELECT id, title, scheduled_at, notes, reminder_minutes FROM appointments WHERE patient_id = ? AND status = 'active' AND scheduled_at >= UTC_TIMESTAMP(3) ORDER BY scheduled_at ASC LIMIT 50",
       [patientId],
     ),
     db().execute<(RowDataPacket & {
       id: string;
       label: string;
       due_at: Date;
-      status: string;
+      status: PatientTimer["status"];
+      kind: string;
+      remaining_seconds: number | null;
     })[]>(
-      "SELECT id, label, due_at, status FROM timers WHERE patient_id = ? AND status = 'active' ORDER BY due_at ASC LIMIT 50",
+      `SELECT id, label, due_at,
+              CASE WHEN status = 'active' AND due_at <= UTC_TIMESTAMP(3) THEN 'due' ELSE status END AS status,
+              kind, remaining_seconds
+       FROM timers
+       WHERE patient_id = ? AND status IN ('active', 'paused', 'due')
+       ORDER BY CASE WHEN status = 'paused' THEN 1 ELSE 0 END, due_at ASC
+       LIMIT 50`,
       [patientId],
     ),
   ]);
@@ -292,12 +304,63 @@ export async function listAgenda(userId: string, patientId: string) {
       title: row.title,
       scheduledAt: row.scheduled_at.toISOString(),
       notes: row.notes,
+      reminderMinutes: row.reminder_minutes,
     })),
     timers: timerRows.map<PatientTimer>((row) => ({
       id: row.id,
       label: row.label,
       dueAt: row.due_at.toISOString(),
       status: row.status,
+      kind: row.kind,
+      remainingSeconds: row.remaining_seconds,
+    })),
+  };
+}
+
+export type CalendarPayload = {
+  month: string;
+  appointments: Array<{ id: string; title: string; scheduledAt: string }>;
+  records: Array<{ id: string; glucose: number; status: string; occurredAt: string }>;
+};
+
+export async function listCalendarMonth(userId: string, patientId: string, month: string): Promise<CalendarPayload> {
+  await assertPatientAccess(userId, patientId);
+  const start = new Date(`${month}-01T00:00:00.000Z`);
+  if (Number.isNaN(start.getTime())) throw new Error("Invalid calendar month");
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+  const queryStart = new Date(start.getTime() - 48 * 60 * 60 * 1000);
+  const queryEnd = new Date(end.getTime() + 48 * 60 * 60 * 1000);
+  const [appointmentResult, recordResult] = await Promise.all([
+    db().execute<(RowDataPacket & { id: string; title: string; scheduled_at: Date })[]>(
+      `SELECT id, title, scheduled_at
+       FROM appointments
+       WHERE patient_id = ? AND status = 'active' AND scheduled_at >= ? AND scheduled_at < ?
+       ORDER BY scheduled_at ASC`,
+      [patientId, queryStart, queryEnd],
+    ),
+    db().execute<(RowDataPacket & { id: string; glucose: number; status: string; occurred_at: Date })[]>(
+      `SELECT id, glucose, status, occurred_at
+       FROM bolus_records
+       WHERE patient_id = ? AND occurred_at >= ? AND occurred_at < ?
+       ORDER BY occurred_at ASC
+       LIMIT 500`,
+      [patientId, queryStart, queryEnd],
+    ),
+  ]);
+  const [appointmentRows] = appointmentResult;
+  const [recordRows] = recordResult;
+  return {
+    month,
+    appointments: appointmentRows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      scheduledAt: row.scheduled_at.toISOString(),
+    })),
+    records: recordRows.map((row) => ({
+      id: row.id,
+      glucose: row.glucose,
+      status: row.status,
+      occurredAt: row.occurred_at.toISOString(),
     })),
   };
 }
