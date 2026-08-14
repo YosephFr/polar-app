@@ -3,6 +3,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 mkdir -p logs tmp
+unset __NEXT_PRIVATE_STANDALONE_CONFIG
+unset NEXT_RUNTIME
+export NODE_OPTIONS="--max-old-space-size=1024"
 
 exec 9>tmp/deploy.lock
 if ! flock -n 9; then
