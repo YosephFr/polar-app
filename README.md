@@ -44,6 +44,12 @@ npm run build
 npm run db:migrate
 ```
 
+## Deployment
+
+The production build uses the Next.js standalone server. Database migrations run automatically before the application starts. A signed GitHub push webhook can call `/api/deploy`; the deployment script then updates `main`, runs the complete verification suite, builds the application, and requests a graceful Passenger restart.
+
+Required production environment variables are listed in `.env.example`. Keep database credentials, the deployment webhook secret, and personal health information outside the repository.
+
 ## Safety boundary
 
 Polar records and applies parameters entered from an individual care plan. It does not diagnose, prescribe treatment, or replace guidance from a diabetes care team. Urgent symptoms or severe glucose events require the person's established emergency plan and appropriate medical assistance.
@@ -55,4 +61,3 @@ Issues and pull requests are welcome. Contributions should preserve the safety b
 ## License
 
 [MIT](LICENSE)
-

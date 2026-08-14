@@ -24,6 +24,8 @@ releases/
 # Internal project context
 AGENTS.md
 .private/
+logs/
+tmp/
 docs/00-descubrimiento-y-alcance.md
 docs/evidence/
 
@@ -31,4 +33,3 @@ docs/evidence/
 .DS_Store
 .idea/
 .vscode/
-

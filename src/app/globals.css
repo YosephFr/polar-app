@@ -1,26 +1,107 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --color-*: initial;
+  --shadow-*: initial;
+  --radius-*: initial;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-canvas: #ffffff;
+  --color-surface: #f3f8f8;
+  --color-surface-strong: #e7f2f2;
+  --color-recessed: #edf4f4;
+  --color-ink: #172234;
+  --color-ink-soft: #596879;
+  --color-ink-faint: #8793a1;
+  --color-border: #dce5e6;
+  --color-border-strong: #bccbcd;
+  --color-polar: #078d90;
+  --color-polar-dark: #087579;
+  --color-polar-soft: #dff1f1;
+  --color-success: #2b9664;
+  --color-success-soft: #e1f4ea;
+  --color-warning: #d48a2f;
+  --color-warning-soft: #fff3df;
+  --color-danger: #cc4d50;
+  --color-danger-soft: #fdebec;
 
-@media (prefers-color-scheme: dark) {
+  --shadow-soft: 0 12px 32px rgb(12 69 72 / 0.08);
+  --shadow-nav: 0 -8px 28px rgb(23 34 52 / 0.07);
+
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.5rem;
+
+  --font-sans: var(--font-manrope), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: light;
+  }
+
+  html {
+    background: var(--color-canvas);
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+
+  :where(a, button, input, select, textarea, [role="button"]):focus-visible {
+    outline: 3px solid rgb(7 141 144 / 0.28);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-polar-soft);
+    color: var(--color-ink);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility pb-tabbar-safe {
+  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

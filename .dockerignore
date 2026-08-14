@@ -1,0 +1,8 @@
+.git
+.next
+.private
+docs
+node_modules
+logs
+tmp
+npm-debug.log*

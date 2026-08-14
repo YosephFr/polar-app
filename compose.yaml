@@ -1,0 +1,50 @@
+name: polar-local
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: polar
+      MYSQL_USER: polar
+      MYSQL_PASSWORD: polar
+      MYSQL_ROOT_PASSWORD: polar-root
+    ports:
+      - "127.0.0.1:33063:3306"
+    volumes:
+      - polar_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -upolar -ppolar --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: polar
+      DB_USER: polar
+      DB_PASSWORD: polar
+      APP_URL: http://localhost:4310
+      NEXT_PUBLIC_BUILD_ID: development
+      GIT_SHA: development
+      SEED_TEST_USERS: "false"
+    ports:
+      - "127.0.0.1:4310:3000"
+    volumes:
+      - .:/app
+      - polar_node_modules:/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  polar_mysql:
+  polar_node_modules:
+
