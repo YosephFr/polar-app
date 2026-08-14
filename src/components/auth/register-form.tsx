@@ -44,7 +44,7 @@ export function RegisterForm() {
 
   return (
     <div>
-      <h1 className="text-3xl font-extrabold tracking-[-0.03em]">Crear cuenta</h1>
+      <h1 className="text-3xl font-black tracking-[-0.035em] text-ink">Crear cuenta</h1>
       <form onSubmit={submit} className="mt-7 flex flex-col gap-4">
         <Field label="Nombre" htmlFor="register-name">
           <Input id="register-name" name="displayName" autoComplete="name" required />
@@ -59,10 +59,10 @@ export function RegisterForm() {
           <Input id="register-password" name="password" type="password" autoComplete="new-password" minLength={4} required />
         </Field>
         {error ? <p className="rounded-md bg-danger-soft px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</p> : null}
-        <Button type="submit" loading={loading} className="mt-1 w-full">Crear cuenta</Button>
+        <Button type="submit" loading={loading} className="mt-2 min-h-14 w-full">Crear cuenta</Button>
       </form>
       <p className="mt-6 text-center text-sm text-ink-soft">
-        ¿Ya tiene una cuenta? <Link href="/entrar" className="font-bold text-polar">Iniciar sesión</Link>
+        ¿Ya tiene una cuenta? <Link href="/entrar" className="font-extrabold text-polar">Iniciar sesión</Link>
       </p>
     </div>
   );

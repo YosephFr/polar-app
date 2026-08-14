@@ -40,8 +40,8 @@ export function LoginForm() {
 
   return (
     <div>
-      <h1 className="text-3xl font-extrabold tracking-[-0.03em]">Iniciar sesión</h1>
-      <form onSubmit={submit} className="mt-8 flex flex-col gap-5">
+      <h1 className="text-3xl font-black tracking-[-0.035em] text-ink">Iniciar sesión</h1>
+      <form onSubmit={submit} className="mt-7 flex flex-col gap-5">
         <Field label="Usuario o correo electrónico" htmlFor="login-identifier">
           <Input id="login-identifier" autoComplete="username" autoCapitalize="none" value={identifier} onChange={(event) => setIdentifier(event.target.value)} required />
         </Field>
@@ -49,10 +49,10 @@ export function LoginForm() {
           <Input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         </Field>
         {error ? <p className="rounded-md bg-danger-soft px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</p> : null}
-        <Button type="submit" loading={loading} className="w-full">Iniciar sesión</Button>
+        <Button type="submit" loading={loading} className="mt-1 min-h-14 w-full">Iniciar sesión</Button>
       </form>
       <p className="mt-6 text-center text-sm text-ink-soft">
-        ¿No tiene una cuenta? <Link href="/registro" className="font-bold text-polar">Crear cuenta</Link>
+        ¿No tiene una cuenta? <Link href="/registro" className="font-extrabold text-polar">Crear cuenta</Link>
       </p>
     </div>
   );

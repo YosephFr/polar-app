@@ -5,46 +5,68 @@
   --shadow-*: initial;
   --radius-*: initial;
 
-  --color-canvas: #ffffff;
-  --color-surface: #f3f8f8;
-  --color-surface-strong: #e7f2f2;
-  --color-recessed: #edf4f4;
-  --color-ink: #172234;
-  --color-ink-soft: #596879;
-  --color-ink-faint: #8793a1;
-  --color-border: #dce5e6;
-  --color-border-strong: #bccbcd;
-  --color-polar: #078d90;
-  --color-polar-dark: #087579;
-  --color-polar-soft: #dff1f1;
-  --color-success: #2b9664;
-  --color-success-soft: #e1f4ea;
-  --color-warning: #d48a2f;
-  --color-warning-soft: #fff3df;
-  --color-danger: #cc4d50;
-  --color-danger-soft: #fdebec;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-canvas: #faf8f5;
+  --color-panel: #ffffff;
+  --color-surface: #f1f6f5;
+  --color-surface-strong: #e5f0ef;
+  --color-recessed: #edf3f2;
+  --color-ink: #24323a;
+  --color-ink-soft: #5e6b7b;
+  --color-ink-faint: #8b96a5;
+  --color-border: #dde7e6;
+  --color-border-strong: #c7d5d5;
+  --color-polar: #088b8e;
+  --color-polar-dark: #087477;
+  --color-polar-soft: #dff1f0;
+  --color-on-accent: #ffffff;
+  --color-success: #2c9264;
+  --color-success-soft: #e2f3e9;
+  --color-warning: #b86f21;
+  --color-warning-soft: #fff1dc;
+  --color-danger: #c8494d;
+  --color-danger-soft: #fcebed;
 
-  --shadow-soft: 0 12px 32px rgb(12 69 72 / 0.08);
-  --shadow-nav: 0 -8px 28px rgb(23 34 52 / 0.07);
+  --shadow-field: 0 2px 0 rgb(36 50 58 / 0.025), 0 8px 20px rgb(36 50 58 / 0.035);
+  --shadow-card: 0 12px 34px rgb(20 74 76 / 0.075);
+  --shadow-action: 0 10px 24px rgb(8 139 142 / 0.2);
+  --shadow-float: 0 14px 34px rgb(36 50 58 / 0.13), 0 2px 8px rgb(36 50 58 / 0.06);
+  --shadow-overlay: 0 18px 48px rgb(36 50 58 / 0.17);
 
-  --radius-sm: 0.75rem;
-  --radius-md: 1rem;
-  --radius-lg: 1.25rem;
-  --radius-xl: 1.5rem;
+  --radius-sm: 0.875rem;
+  --radius-md: 1.125rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 1.875rem;
 
-  --font-sans: var(--font-manrope), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-nunito), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
+
 @layer base {
   :root {
     color-scheme: light;
   }
 
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
     background: var(--color-canvas);
   }
 
   body {
+    width: 100%;
     min-height: 100dvh;
+    max-width: 100%;
+    overflow-x: clip;
     background: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
@@ -54,22 +76,38 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
   input,
-  select,
   textarea,
   button {
+    min-width: 0;
     font: inherit;
   }
 
   input,
-  select,
   textarea {
     font-size: 1rem;
   }
 
-  :where(a, button, input, select, textarea, [role="button"]):focus-visible {
-    outline: 3px solid rgb(7 141 144 / 0.28);
-    outline-offset: 2px;
+  button,
+  a {
+    touch-action: manipulation;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  :where(a, button, input, textarea, [role="button"], [role="option"]):focus-visible {
+    outline: 3px solid rgb(8 139 142 / 0.25);
+    outline-offset: 3px;
   }
 
   ::selection {
@@ -78,8 +116,8 @@
   }
 }
 
-@utility pb-tabbar-safe {
-  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+@utility app-content-bottom {
+  padding-bottom: calc(8.75rem + env(safe-area-inset-bottom));
 }
 
 @utility pt-safe {
@@ -93,6 +131,53 @@
 @utility tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+}
+
+@keyframes polar-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes polar-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes polar-shimmer {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+
+.page-enter {
+  animation: polar-rise 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.select-menu-enter {
+  transform-origin: top center;
+  animation: polar-pop 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.skeleton-pulse {
+  animation: polar-shimmer 1.3s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

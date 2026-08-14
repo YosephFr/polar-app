@@ -5,7 +5,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   poweredByHeader: false,
-  experimental: { cpus: 1 },
+  experimental: {
+    cpus: 1,
+    optimizePackageImports: ["@phosphor-icons/react"],
+  },
   allowedDevOrigins: ["127.0.0.1"],
   headers: async () => [
     {

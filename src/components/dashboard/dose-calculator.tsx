@@ -107,7 +107,7 @@ export function DoseCalculator({ carePlan, latestRecord }: { carePlan: PatientCa
         <Field label="Comida" htmlFor="meal-type">
           <div className="relative">
             <Utensils size={23} className="pointer-events-none absolute left-5 top-1/2 z-10 -translate-y-1/2 text-polar" />
-            <Select id="meal-type" value={mealType} onChange={(event) => { setMealType(event.target.value as typeof mealType); setResult(null); }} className="h-[4.25rem] rounded-lg border-border-strong pl-14 text-lg font-extrabold">
+            <Select id="meal-type" value={mealType} onValueChange={(value) => { setMealType(value as typeof mealType); setResult(null); }} className="h-[4.25rem] rounded-lg border-border-strong pl-14 text-lg font-extrabold">
               {mealTypes.map((type) => <option key={type} value={type}>{mealLabels[type]}</option>)}
             </Select>
           </div>
