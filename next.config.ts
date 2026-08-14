@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   poweredByHeader: false,
+  serverExternalPackages: ["pdfkit"],
   experimental: {
     cpus: 1,
     optimizePackageImports: ["@phosphor-icons/react"],
